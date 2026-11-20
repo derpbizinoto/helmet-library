@@ -10,6 +10,8 @@ Versão atual: **1.2.0** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Te
 
 Grátis e de código aberto ([licença MIT](LICENSE)).
 
+![Painel do Helmet Library](docs/screenshots/pt/painel.png)
+
 **[⬇ Baixar a versão mais recente](https://github.com/derpbizinoto/helmet-library/releases/latest)**: Premiere Pro no Windows.
 
 ## Instalação
