@@ -212,16 +212,31 @@
         return rootReal[k];
     }
 
+    // Destino de um atalho (link simbólico ou junção), ou null se não for atalho.
+    function linkTarget(full) {
+        return p(fs.readlink, full).then(function (t) {
+            t = String(t).replace(/^\\\\\?\\|^\\\?\?\\/, "");   // tira \\?\ e \??\ do começo
+            return path.resolve(path.dirname(full), t);
+        }, function () { return null; });
+    }
+
     // Lê uma entrada da pasta. Atalhos (links simbólicos e junções do Windows) só são
     // seguidos se o destino real ficar DENTRO da mesma biblioteca (root); os que apontam
     // para fora são ignorados. Resolve { st, link, real } ou null (ignorar).
+    // Toda PASTA tem o lugar real conferido, não só as que o sistema diz que são atalho:
+    // o Node que roda dentro do Premiere não marcou uma junção como atalho (teste 8.2 da 1.3.0).
     function inspect(full, root) {
         return p(fs.lstat, full).then(function (lst) {
-            if (!lst.isSymbolicLink()) return { st: lst, link: false };
-            if (!root) return null;
-            return Promise.all([realpath(full), realRoot(root)]).then(function (r) {
-                if (!isInside(r[0], r[1])) return null;
-                return p(fs.stat, full).then(function (st) { return { st: st, link: true, real: r[0] }; });
+            var isLink = lst.isSymbolicLink();
+            if (!isLink && !lst.isDirectory()) return { st: lst, link: false };
+            if (!root) return isLink ? null : { st: lst, link: false };
+            return Promise.all([realpath(full), realRoot(root), linkTarget(full)]).then(function (r) {
+                var real = r[0], rootR = r[1], target = r[2];
+                if (!isInside(real, rootR)) return null;
+                if (target && !isInside(target, rootR) && !isInside(target, root)) return null;
+                return (isLink ? p(fs.stat, full) : Promise.resolve(lst)).then(function (st) {
+                    return { st: st, link: isLink || !!target, real: real };
+                });
             });
         }).catch(function () { return null; });   // sem permissão ou link quebrado: ignora
     }
@@ -286,7 +301,7 @@
                 seen[pathKey(d.real)] = true;
                 return listDir(d.path, opts).then(function (res) {
                     res.dirs.forEach(function (x) {
-                        queue.push({ path: x.path, real: x.link ? x.real : path.join(d.real, x.name) });
+                        queue.push({ path: x.path, real: x.real || path.join(d.real, x.name) });
                     });
                     for (var i = 0; i < res.files.length; i++) {
                         if (out.length >= limit) { out.truncated = true; break; }

@@ -38,11 +38,12 @@ function tmpDir(name) {
 
 // Carrega os scripts "Node" do painel num contexto parecido com o do CEP
 // (--mixed-context: require/process/Buffer visíveis na página).
-function loadPanel(files, env) {
+// customRequire: troca módulos do Node (ex.: um fs que se comporta como o do Premiere)
+function loadPanel(files, env, customRequire) {
     const fakeProcess = Object.create(process);
     fakeProcess.env = Object.assign({}, process.env, env || {});
     const ctx = {
-        require, process: fakeProcess, Buffer, console: { log() {}, warn() {}, error() {} },
+        require: customRequire || require, process: fakeProcess, Buffer, console: { log() {}, warn() {}, error() {} },
         setTimeout, clearTimeout, Promise
     };
     ctx.window = ctx;
@@ -200,6 +201,32 @@ test("pastas: atalho para dentro da biblioteca é seguido; para fora, ignorado",
     const files = await L.walk(lib, { root: lib });
     assert.ok(!files.some((f) => f.name === "segredo.wav"), "nada de fora da biblioteca");
     eq(files.map((f) => f.name), ["boom.wav"], "a pasta real é lida uma vez só");
+});
+
+// O Node dentro do Premiere (NW.js 0.63) mostrou uma junção para C:\Windows como pasta comum
+// (teste 8.2 da 1.3.0). Aqui o fs "esquece" de marcar atalhos, como lá.
+function loadLibraryBlindToLinks(appData) {
+    const realFs = require("fs");
+    const blindFs = Object.assign({}, realFs, {
+        lstat(p, cb) { realFs.stat(p, cb); },
+        lstatSync(p) { return realFs.statSync(p); }
+    });
+    const req = (m) => (m === "fs" ? blindFs : require(m));
+    return loadPanel(["client/js/library.js"], { APPDATA: appData, LOCALAPPDATA: appData }, req).HLLibrary;
+}
+
+test("pastas: atalho para fora fica escondido mesmo se o sistema não disser que é atalho", async () => {
+    const L = loadLibraryBlindToLinks(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    const outside = tmpDir("fora");
+    touch(path.join(lib, "SFX", "boom.wav"));
+    touch(path.join(outside, "segredo.wav"));
+    link(path.join(lib, "SFX"), path.join(lib, "Atalho SFX"));
+    link(outside, path.join(lib, "Atalho fora"));
+    link(lib, path.join(lib, "SFX", "volta"));
+    eq((await L.listDirs(lib, { root: lib })).map((d) => d.name), ["Atalho SFX", "SFX"], "atalho para fora aparece");
+    const files = await L.walk(lib, { root: lib });
+    eq(files.map((f) => f.name), ["boom.wav"], "nada de fora e sem andar em círculo");
 });
 
 test("pastas: atalho que aponta para a pasta mãe não faz a busca andar em círculo", async () => {
