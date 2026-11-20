@@ -89,6 +89,11 @@
                 else if (id === "reload") location.reload();
             });
         } catch (e) { /* versões antigas sem menu */ }
+        try {
+            // Esc: sem isto o Premiere fica com a tecla e o painel nunca a recebe (teste 2.5 da 1.3.0).
+            // Código da tecla: Windows 27 (VK_ESCAPE), Mac 53.
+            cs.registerKeyEventsInterest(JSON.stringify([{ keyCode: process.platform === "darwin" ? 53 : 27 }]));
+        } catch (e) { HL.log("registerKeyEventsInterest falhou", e); }
         HLBridge.hostVersion().then(function (v) {
             if (v !== CLIENT_VERSION) HL.warn("versões diferentes: host " + v + " / painel " + CLIENT_VERSION);
         }, function () { /* o aviso de host não carregado aparece ao adicionar */ });
