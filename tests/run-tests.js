@@ -389,6 +389,171 @@ test("interface: CSP no index.html bloqueia script embutido e não libera intern
 });
 
 // ---------------------------------------------------------------------------
+// Host (index.jsx) e ponte painel -> host, num Premiere simulado
+// ---------------------------------------------------------------------------
+
+const mock = require("./premiere-mock");
+
+function loadHost(opts) {
+    const ctx = mock.makeContext(opts);
+    vm.createContext(ctx);
+    vm.runInContext(read("host/index.jsx"), ctx, { filename: "index.jsx" });
+    return ctx;
+}
+
+// Painel com a ponte; o evalScript roda o texto no host simulado.
+function loadBridge(hostCtx) {
+    const ctx = {
+        console: { log() {}, warn() {}, error() {} }, setTimeout, Promise, JSON, RegExp, String,
+        __adobe_cep__: {},
+        SystemPath: { EXTENSION: "extension" },
+        CSInterface: function () {
+            this.getSystemPath = () => ROOT;
+            this.evalScript = (script, cb) => {
+                let out;
+                try { out = String(vm.runInContext(script, hostCtx)); } catch (e) { out = "EvalScript error."; }
+                setTimeout(() => cb(out), 0);
+            };
+        }
+    };
+    ctx.window = ctx;
+    vm.createContext(ctx);
+    vm.runInContext(read("client/js/bridge.js") + "\nthis.HLBridge = HLBridge;", ctx, { filename: "bridge.js" });
+    return ctx.HLBridge;
+}
+
+const HARD_NAMES = [
+    "Zé Ninguém — áudio.wav",
+    "100% (final); versão 2 & cia.wav",
+    "D’Ávila 'aspas' x.wav",
+    "linha\u2028separador\u2029parágrafo.wav",
+    "emoji 🎬 e chinês 剪辑.mp4",
+    "${injeção}`); alert(1); x.wav"
+];
+
+test("host: só responde JSON {ok, data, error}, inclusive a versão", () => {
+    const host = loadHost();
+    const v = JSON.parse(host.hl_getHostVersion());
+    assert.strictEqual(v.ok, true);
+    assert.ok(/^\d+\.\d+\.\d+$/.test(v.data.version));
+    const tricky = ["a\"b\\c", "linha\nnova\ttab", "\u2028\u2029", "emoji 🎬", "\u0001"];
+    eq(JSON.parse(host.hl_json({ list: tricky, n: 1.5, t: true, z: null })), { list: tricky, n: 1.5, t: true, z: null });
+});
+
+test("host: arquivo que não existe vira {ok:false} com mensagem clara", () => {
+    const host = loadHost();
+    const r = JSON.parse(host.hl_add("C:\\não\\existe.wav", "audio", true, "Helmet Library", ""));
+    assert.strictEqual(r.ok, false);
+    assert.ok(/Arquivo não encontrado/.test(r.error));
+});
+
+test("host: erro inesperado do Premiere vira {ok:false}, sem travar", () => {
+    const host = loadHost();
+    const file = path.join(tmpDir("midia"), "a.wav");
+    touch(file);
+    host.app.project.importFiles = () => { throw new Error("falha interna"); };
+    const r = JSON.parse(host.hl_add(file, "audio", true, "Helmet Library", ""));
+    assert.strictEqual(r.ok, false);
+    assert.ok(/^Erro ao adicionar: .*falha interna/.test(r.error));
+});
+
+test("ponte: nomes difíceis chegam intactos ao Premiere e voltam na resposta", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const dir = tmpDir("midia");
+    for (const name of HARD_NAMES) {
+        const file = path.join(dir, name);
+        touch(file);
+        const data = await bridge.call("hl_add", [file, name.endsWith(".mp4") ? "video" : "audio", false, "Helmet Library", "Sons/Sub"]);
+        assert.strictEqual(data.where, "project");
+        assert.strictEqual(data.name, name);
+        assert.strictEqual(host.app.project.imports[host.app.project.imports.length - 1], path.resolve(file));
+    }
+    const lib = host.app.project.rootItem.children[0];
+    assert.strictEqual(lib.name, "Helmet Library");
+    assert.strictEqual(lib.children[0].name, "Sons");
+    assert.strictEqual(lib.children[0].children[0].name, "Sub");
+    assert.strictEqual(lib.children[0].children[0].children.length, HARD_NAMES.length);
+});
+
+test("ponte: funções fora da lista são recusadas antes de chegar ao Premiere", async () => {
+    const bridge = loadBridge(loadHost());
+    await assert.rejects(bridge.call("app.quit", []), /não permitida/);
+    assert.throws(() => bridge._buildScript("hl_add);app.quit(", []), /não permitida/);
+    assert.strictEqual(bridge._toScriptLiteral("a\u2028b"), "\"a\\u2028b\"");
+});
+
+test("ponte: host que não carregou dá mensagem clara", async () => {
+    const empty = mock.makeContext();
+    vm.createContext(empty);
+    const bridge = loadBridge(empty);
+    await assert.rejects(bridge.call("hl_add", ["x", "audio", true, "", ""]), /não carregou/);
+});
+
+test("host: o mesmo arquivo duas vezes na mesma bin é reaproveitado", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const file = path.join(tmpDir("midia"), "boom.wav");
+    touch(file);
+    const a = await bridge.call("hl_add", [file, "audio", false, "Helmet Library", ""]);
+    const b = await bridge.call("hl_add", [file, "audio", false, "Helmet Library", ""]);
+    assert.strictEqual(a.reused, false);
+    assert.strictEqual(b.reused, true);
+    assert.strictEqual(host.app.project.imports.length, 1);
+});
+
+test("host: timeline na primeira trilha livre; cria trilha quando todas estão ocupadas", async () => {
+    const seq = new mock.Sequence(1, 1);
+    const host = loadHost({ sequence: seq });
+    const bridge = loadBridge(host);
+    const dir = tmpDir("midia");
+    const a = path.join(dir, "a.wav"), v = path.join(dir, "v.mp4");
+    touch(a); touch(v);
+    eq((await bridge.call("hl_add", [a, "audio", true, "", ""])).track, "A1");
+    eq((await bridge.call("hl_add", [a, "audio", true, "", ""])).track, "A2", "A1 ocupada → cria A2");
+});
+
+test("host: vídeo usa V e A livres no mesmo número de trilha", async () => {
+    const seq = new mock.Sequence(2, 2);
+    const host = loadHost({ sequence: seq });
+    const bridge = loadBridge(host);
+    const dir = tmpDir("midia");
+    const a = path.join(dir, "a.wav"), v = path.join(dir, "v.mp4");
+    touch(a); touch(v);
+    eq((await bridge.call("hl_add", [a, "audio", true, "", ""])).track, "A1");
+    eq((await bridge.call("hl_add", [v, "video", true, "", ""])).track, "V2", "A1 ocupada → V2/A2");
+    // Comportamento antigo, mantido de propósito (registrado na AUDITORIA, item P1): se as
+    // trilhas criadas não deixarem V e A livres no mesmo número, o vídeo recusa com aviso.
+    const seq2 = new mock.Sequence(1, 1);
+    const host2 = loadHost({ sequence: seq2 });
+    const bridge2 = loadBridge(host2);
+    await bridge2.call("hl_add", [a, "audio", true, "", ""]);
+    await bridge2.call("hl_add", [a, "audio", true, "", ""]);
+    await assert.rejects(bridge2.call("hl_add", [v, "video", true, "", ""]), /Não há trilha livre/);
+});
+
+test("host: sem sequência aberta, importa só no projeto e avisa", async () => {
+    const host = loadHost({ sequence: null });
+    const file = path.join(tmpDir("midia"), "a.wav");
+    touch(file);
+    const data = await loadBridge(host).call("hl_add", [file, "audio", true, "", ""]);
+    assert.strictEqual(data.noSequence, true);
+    assert.strictEqual(data.where, "project");
+});
+
+test("host: MOGRT vai para a timeline com importMGT; no projeto avisa se não der", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const file = path.join(tmpDir("midia"), "Título Ç.mogrt");
+    touch(file);
+    const t = await bridge.call("hl_add", [file, "mogrt", true, "", ""]);
+    assert.strictEqual(t.where, "timeline");
+    assert.strictEqual(t.track, "V1");
+    assert.strictEqual(host.app.project.activeSequence.mgts[0].file, path.resolve(file));
+    await assert.rejects(bridge.call("hl_add", [file, "mogrt", false, "", ""]), /só aceita MOGRT direto na timeline/);
+});
+
+// ---------------------------------------------------------------------------
 // Execução
 // ---------------------------------------------------------------------------
 

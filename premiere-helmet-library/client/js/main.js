@@ -745,18 +745,6 @@
     // adicionar ao Premiere
     // ======================================================================
 
-    function evalHost(script) {
-        return new Promise(function (resolve) {
-            if (!cs) { resolve({ ok: false, error: "Fora do Premiere (modo de demonstração)." }); return; }
-            cs.evalScript(script, function (res) {
-                if (res === "EvalScript error.") { resolve({ ok: false, error: "Erro no ExtendScript. Reabra o painel." }); return; }
-                try { resolve(JSON.parse(res)); } catch (e) { resolve({ ok: false, error: String(res || "resposta vazia do Premiere") }); }
-            });
-        });
-    }
-
-    function q(s) { return "'" + encodeURIComponent(s).replace(/'/g, "%27") + "'"; }
-
     function binFor(f) {
         if (!cfg.useBin) return { bin: "", sub: "" };
         if (!cfg.mirrorFolders) return { bin: BIN_NAME, sub: "" };
@@ -786,18 +774,14 @@
             var f = files[i++];
             var b = binFor(f);
             var kind = f.kind === "unknown" ? "other" : f.kind;
-            var script = "hl_add(" + q(f.path) + ",'" + kind + "','" + (toTimeline ? "1" : "0") + "'," + q(b.bin) + "," + q(b.sub) + ")";
-            return evalHost(script).then(function (r) {
-                if (r.ok) {
-                    okCount++;
-                    if (r.data.noSequence) noSeq = true;
-                    lastMsg = r.data.where === "timeline" ? "“" + r.data.name + "” na trilha " + r.data.track : "“" + r.data.name + "” importado no projeto";
-                    flashTile(f);
-                } else {
-                    errors.push(f.name + ": " + r.error);
-                }
-                return next();
-            });
+            return HLBridge.call("hl_add", [f.path, kind, !!toTimeline, b.bin, b.sub]).then(function (data) {
+                okCount++;
+                if (data.noSequence) noSeq = true;
+                lastMsg = data.where === "timeline" ? "“" + data.name + "” na trilha " + data.track : "“" + data.name + "” importado no projeto";
+                flashTile(f);
+            }, function (err) {
+                errors.push(f.name + ": " + err.message);
+            }).then(next);
         }
         next().then(function () {
             adding = false;
@@ -1166,9 +1150,9 @@
                 else if (id === "reload") location.reload();
             });
         } catch (e) { /* versões antigas sem menu */ }
-        cs.evalScript("hl_getHostVersion()", function (v) {
-            if (v && v !== "EvalScript error." && v !== CLIENT_VERSION) console.warn("Helmet Library: host " + v + " / painel " + CLIENT_VERSION);
-        });
+        HLBridge.hostVersion().then(function (v) {
+            if (v !== CLIENT_VERSION) console.warn("Helmet Library: host " + v + " / painel " + CLIENT_VERSION);
+        }, function () { /* o aviso de host não carregado aparece ao adicionar */ });
     }
 
     syncSubfoldersBtn();

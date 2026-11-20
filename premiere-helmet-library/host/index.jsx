@@ -1,10 +1,16 @@
-// host/index.jsx — Helmet Library
+﻿// host/index.jsx — Helmet Library
 // Lado ExtendScript: importa arquivos da biblioteca no Project (numa bin "Helmet Library",
 // opcionalmente espelhando as subpastas) e coloca o clipe na timeline, na posição da agulha,
 // na primeira trilha livre. MOGRTs entram com sequence.importMGT().
-// As respostas são JSON montado à mão (o ExtendScript do Premiere não tem JSON nativo).
+//
+// O painel só chama as funções públicas (hl_add, hl_getHostVersion) pela ponte única
+// (client/js/bridge.js), com cada argumento como literal JSON. Toda função pública passa
+// por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
+// Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
 var HL_HOST_VERSION = "1.2.3";
+
+// ---------- respostas ----------
 
 function hl_esc(s) {
     var str = String(s);
@@ -17,35 +23,89 @@ function hl_esc(s) {
         else if (c === "\n") out += "\\n";
         else if (c === "\r") out += "\\r";
         else if (c === "\t") out += "\\t";
-        else if (code < 32) out += "\\u" + ("0000" + code.toString(16)).slice(-4);
+        else if (code < 32 || code === 0x2028 || code === 0x2029) out += "\\u" + ("0000" + code.toString(16)).slice(-4);
         else out += c;
     }
     return out;
 }
 
-function hl_ok(fieldsJson) { return '{"ok":true,"data":{' + (fieldsJson || "") + '}}'; }
-function hl_fail(msg) { return '{"ok":false,"error":"' + hl_esc(msg) + '"}'; }
-
-function hl_getHostVersion() { return HL_HOST_VERSION; }
-
-// Situação atual: projeto aberto, sequência ativa e posição da agulha.
-function hl_getInfo() {
-    try {
-        if (!app.project) return hl_fail("Nenhum projeto aberto.");
-        var seq = app.project.activeSequence;
-        var seqName = "";
-        var pos = 0;
-        if (seq) {
-            try { seqName = seq.name; } catch (e1) { seqName = ""; }
-            try { pos = seq.getPlayerPosition().seconds; } catch (e2) { pos = 0; }
-        }
-        var projName = "";
-        try { projName = app.project.name || ""; } catch (e3) { projName = ""; }
-        return hl_ok('"project":"' + hl_esc(projName) + '","sequence":"' + hl_esc(seqName) +
-            '","hasSequence":' + (seq ? "true" : "false") + ',"playhead":' + pos);
-    } catch (e) {
-        return hl_fail("Erro ao ler o projeto: " + e);
+// JSON.stringify simples (o ExtendScript do Premiere não tem JSON nativo).
+function hl_json(v) {
+    if (v === null || v === undefined) return "null";
+    var t = typeof v;
+    if (t === "string") return '"' + hl_esc(v) + '"';
+    if (t === "number") return isFinite(v) ? String(v) : "null";
+    if (t === "boolean") return v ? "true" : "false";
+    var parts = [];
+    if (Object.prototype.toString.call(v) === "[object Array]") {
+        for (var i = 0; i < v.length; i++) parts.push(hl_json(v[i]));
+        return "[" + parts.join(",") + "]";
     }
+    for (var k in v) {
+        if (v.hasOwnProperty(k)) parts.push('"' + hl_esc(k) + '":' + hl_json(v[k]));
+    }
+    return "{" + parts.join(",") + "}";
+}
+
+// Erro com mensagem para o usuário: throw hl_userError("…")
+function hl_userError(msg) { return { hlMessage: msg }; }
+
+// Roda fn com um try/catch único. prefix: começo da mensagem de erros inesperados.
+function hl_run(fn, prefix) {
+    try {
+        return hl_json({ ok: true, data: fn() });
+    } catch (e) {
+        var msg = (e && e.hlMessage) ? e.hlMessage : (prefix || "Erro no Premiere: ") + e;
+        return hl_json({ ok: false, error: msg });
+    }
+}
+
+// ---------- funções públicas ----------
+
+function hl_getHostVersion() {
+    return hl_run(function () { return { version: HL_HOST_VERSION }; });
+}
+
+var HL_KINDS = { video: 1, audio: 1, image: 1, mogrt: 1, other: 1 };
+
+// path: caminho do arquivo | kind: video | audio | image | mogrt | other
+// toTimeline: true coloca na timeline; false só importa no Project
+// binName: nome da bin ("" = raiz) | subPath: subpastas "A/B" ("" = nenhuma)
+function hl_add(path, kind, toTimeline, binName, subPath) {
+    return hl_run(function () {
+        if (!app.project) throw hl_userError("Nenhum projeto aberto.");
+        if (!HL_KINDS[kind]) kind = "other";
+        var f = new File(String(path));
+        if (!f.exists) throw hl_userError("Arquivo não encontrado: " + path);
+        var fsPath = f.fsName;
+        var wantTimeline = toTimeline === true;
+        var seq = app.project.activeSequence;
+        binName = String(binName || "");
+        subPath = String(subPath || "");
+
+        if (kind === "mogrt") return hl_addMogrt(fsPath, seq, wantTimeline, binName, subPath);
+
+        var imp = hl_importToBin(fsPath, hl_targetBin(binName, subPath));
+        if (!imp.item) throw hl_userError("O Premiere não conseguiu importar este arquivo.");
+
+        if (!wantTimeline) return { where: "project", name: imp.item.name, reused: imp.reused };
+        if (!seq) return { where: "project", noSequence: true, name: imp.item.name };
+
+        var pos = seq.getPlayerPosition();
+        var start = pos.seconds;
+        var end = start + hl_itemDuration(imp.item, kind);
+        var needV = kind !== "audio";
+        var needA = kind === "audio" || kind === "video";
+
+        var free = hl_freeIndexOrNewTrack(seq, start, end, needV, needA);
+        seq = free.seq;
+        if (free.index < 0) throw hl_userError("Não há trilha livre na posição da agulha. Abra espaço ou crie uma trilha.");
+
+        var track = needV ? seq.videoTracks[free.index] : seq.audioTracks[free.index];
+        if (!hl_overwrite(track, imp.item, pos)) throw hl_userError("O Premiere recusou colocar o clipe na timeline.");
+
+        return { where: "timeline", name: imp.item.name, track: (needV ? "V" : "A") + (free.index + 1) };
+    }, "Erro ao adicionar: ");
 }
 
 // ---------- bins ----------
@@ -156,6 +216,18 @@ function hl_findFreeIndex(seq, start, end, needV, needA) {
     return -1;
 }
 
+// Primeira trilha livre; se não houver, cria uma no fim e procura de novo.
+// Devolve { index (-1 = nenhuma), seq (a sequência atualizada) }.
+function hl_freeIndexOrNewTrack(seq, start, end, needV, needA) {
+    var idx = hl_findFreeIndex(seq, start, end, needV, needA);
+    if (idx < 0) {
+        hl_addTracks(needV, needA);
+        seq = app.project.activeSequence;
+        idx = hl_findFreeIndex(seq, start, end, needV, needA);
+    }
+    return { index: idx, seq: seq };
+}
+
 // Cria uma trilha de vídeo e/ou áudio no fim da sequência (API QE, não documentada).
 function hl_addTracks(addV, addA) {
     try {
@@ -183,83 +255,27 @@ function hl_itemDuration(item, kind) {
     return d;
 }
 
-// ---------- entrada principal ----------
-// encPath: caminho com encodeURIComponent
-// kind: video | audio | image | mogrt | other
-// toTimeline: "1" coloca na timeline; "0" só importa no Project
-// encBin: nome da bin ("" = raiz) | encSub: subpastas "A/B" ("" = nenhuma)
-function hl_add(encPath, kind, toTimeline, encBin, encSub) {
-    try {
-        if (!app.project) return hl_fail("Nenhum projeto aberto.");
-        var path = decodeURIComponent(encPath);
-        var f = new File(path);
-        if (!f.exists) return hl_fail("Arquivo não encontrado: " + path);
-        path = f.fsName;
-        var binName = decodeURIComponent(encBin || "");
-        var subPath = decodeURIComponent(encSub || "");
-        var wantTimeline = String(toTimeline) === "1";
-        var seq = app.project.activeSequence;
-
-        if (kind === "mogrt") return hl_addMogrt(path, seq, wantTimeline, binName, subPath);
-
-        var target = hl_targetBin(binName, subPath);
-        var imp = hl_importToBin(path, target);
-        if (!imp.item) return hl_fail("O Premiere não conseguiu importar este arquivo.");
-
-        if (!wantTimeline) {
-            return hl_ok('"where":"project","name":"' + hl_esc(imp.item.name) + '","reused":' + (imp.reused ? "true" : "false"));
-        }
-        if (!seq) {
-            return hl_ok('"where":"project","noSequence":true,"name":"' + hl_esc(imp.item.name) + '"');
-        }
-
-        var pos = seq.getPlayerPosition();
-        var start = pos.seconds;
-        var end = start + hl_itemDuration(imp.item, kind);
-        var needV = kind !== "audio";
-        var needA = kind === "audio" || kind === "video";
-
-        var idx = hl_findFreeIndex(seq, start, end, needV, needA);
-        if (idx < 0) {
-            hl_addTracks(needV, needA);
-            seq = app.project.activeSequence;
-            idx = hl_findFreeIndex(seq, start, end, needV, needA);
-        }
-        if (idx < 0) return hl_fail("Não há trilha livre na posição da agulha. Abra espaço ou crie uma trilha.");
-
-        var track = needV ? seq.videoTracks[idx] : seq.audioTracks[idx];
-        if (!hl_overwrite(track, imp.item, pos)) return hl_fail("O Premiere recusou colocar o clipe na timeline.");
-
-        return hl_ok('"where":"timeline","name":"' + hl_esc(imp.item.name) + '","track":"' +
-            (needV ? "V" : "A") + (idx + 1) + '"');
-    } catch (e) {
-        return hl_fail("Erro ao adicionar: " + e);
-    }
-}
+// ---------- MOGRT ----------
 
 function hl_addMogrt(path, seq, wantTimeline, binName, subPath) {
     if (!wantTimeline) {
         // Nem toda versão importa .mogrt direto no Project; tentamos e avisamos se não der.
+        var ok;
         try {
-            var target = hl_targetBin(binName, subPath);
-            var ok = app.project.importFiles([path], true, target, false);
-            if (ok === false) throw new Error("recusado");
-            return hl_ok('"where":"project","name":"' + hl_esc(new File(path).displayName) + '"');
+            ok = app.project.importFiles([path], true, hl_targetBin(binName, subPath), false);
         } catch (e0) {
-            return hl_fail("Esta versão do Premiere só aceita MOGRT direto na timeline.");
+            ok = false;
         }
+        if (ok === false) throw hl_userError("Esta versão do Premiere só aceita MOGRT direto na timeline.");
+        return { where: "project", name: new File(path).displayName };
     }
-    if (!seq) return hl_fail("Abra uma sequência para adicionar o MOGRT.");
+    if (!seq) throw hl_userError("Abra uma sequência para adicionar o MOGRT.");
     var pos = seq.getPlayerPosition();
     var start = pos.seconds;
     // a duração do MOGRT só é conhecida depois de inserir; checamos 1 s a partir da agulha
-    var vIdx = hl_findFreeIndex(seq, start, start + 1, true, false);
-    if (vIdx < 0) {
-        hl_addTracks(true, false);
-        seq = app.project.activeSequence;
-        vIdx = hl_findFreeIndex(seq, start, start + 1, true, false);
-    }
-    if (vIdx < 0) vIdx = seq.videoTracks.numTracks - 1;
+    var free = hl_freeIndexOrNewTrack(seq, start, start + 1, true, false);
+    seq = free.seq;
+    var vIdx = free.index < 0 ? seq.videoTracks.numTracks - 1 : free.index;
     var aIdx = hl_findFreeIndex(seq, start, start + 1, false, true);
     if (aIdx < 0) aIdx = 0;
 
@@ -268,8 +284,8 @@ function hl_addMogrt(path, seq, wantTimeline, binName, subPath) {
     if (!ti) {
         try { ti = seq.importMGT(path, String(pos.ticks), vIdx, aIdx); } catch (e2) { ti = null; }
     }
-    if (!ti) return hl_fail("O Premiere não conseguiu inserir o MOGRT (versão ou template incompatível?).");
+    if (!ti) throw hl_userError("O Premiere não conseguiu inserir o MOGRT (versão ou template incompatível?).");
     var nm = "";
     try { nm = ti.name; } catch (e3) { nm = new File(path).displayName; }
-    return hl_ok('"where":"timeline","name":"' + hl_esc(nm) + '","track":"V' + (vIdx + 1) + '"');
+    return { where: "timeline", name: nm, track: "V" + (vIdx + 1) };
 }
