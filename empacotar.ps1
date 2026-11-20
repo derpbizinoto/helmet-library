@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\empacotar.ps1
 #
 # Resultado: dist\HelmetLibrary-<versao>.zip com
-#   premiere-helmet-library\  instalar.bat  Add Keys.reg  README.md  CHANGELOG.md
+#   premiere-helmet-library\  instalar.bat  Add Keys.reg  README.md  README.pt-BR.md  LICENSE  CHANGELOG.md
 # Ficam de fora: testes, auditoria, .git, .debug, previews e temporarios.
 # Para com erro se:
 #   - as versoes nao baterem (manifest x2, painel CLIENT_VERSION, host HL_HOST_VERSION);
@@ -45,7 +45,7 @@ if (Test-Path $zip) { Remove-Item -Force $zip }
 New-Item -ItemType Directory -Force $stage | Out-Null
 
 Copy-Item -Recurse $ext $stage
-foreach ($f in @("instalar.bat", "Add Keys.reg", "README.md", "CHANGELOG.md")) {
+foreach ($f in @("instalar.bat", "Add Keys.reg", "README.md", "README.pt-BR.md", "LICENSE", "CHANGELOG.md")) {
     $src = Join-Path $root $f
     if (Test-Path $src) { Copy-Item $src $stage } else { Write-Host "Aviso: $f nao existe, ficou de fora." }
 }

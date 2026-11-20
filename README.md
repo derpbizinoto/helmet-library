@@ -1,167 +1,174 @@
 # Helmet Library
 
-Extensão CEP para o Adobe Premiere Pro que transforma pastas do computador em bibliotecas de recursos (vídeos, sons, imagens, MOGRTs, templates) acessíveis direto num painel, com preview e inserção na timeline por arrastar ou por um clique. A ideia é a mesma do "User Library" do Animation Composer.
+**English** · [Português](README.pt-BR.md)
 
-Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (Violet Terminal com degradês sutis), Geo em caixa alta no nome e Roboto no resto.
+A CEP extension for Adobe Premiere Pro that turns folders on your computer into asset libraries (videos, sounds, images, MOGRTs, templates) available right in a panel, with preview and placing on the timeline by dragging or with one click. The idea is the same as Animation Composer's "User Library".
 
-Versão atual: **1.1.0** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
+It uses the same visual identity as [Helmet DL](https://github.com/derpbizinoto/helmet-dl) and [Helmet Cutter](https://github.com/derpbizinoto/helmet-cutter): Classic theme (Violet Terminal with subtle gradients), Geo in caps for the name and Roboto everywhere else.
 
-## Instalação
+Current version: **1.2.0** (what changed is in [CHANGELOG.md](CHANGELOG.md), Portuguese). Tested as reference on Premiere Pro 26.x on Windows.
 
-### Jeito fácil (Windows)
+Free and open source ([MIT license](LICENSE)).
 
-1. Feche o Premiere.
-2. Dê dois cliques no **`instalar.bat`** (fica ao lado da pasta `premiere-helmet-library`). Ele:
-   1. copia a extensão para `%APPDATA%\Adobe\CEP\extensions\premiere-helmet-library` (sem o arquivo de depuração `.debug`);
-   2. libera extensões não assinadas (`PlayerDebugMode`) e confere se deu certo;
-   3. avisa se existe uma cópia antiga em `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions` (ela deixaria o painel duplicado).
+**[⬇ Download the latest version](https://github.com/derpbizinoto/helmet-library/releases/latest)**: Premiere Pro on Windows.
 
-   Não precisa de administrador. Suas bibliotecas e configurações não são apagadas.
-3. No Premiere: **Janela › Extensões › Helmet Library** (*Window › Extensions › Helmet Library*).
+## Installation
 
-### Jeito manual
+### Easy way (Windows)
 
-1. Feche o Premiere.
-2. Copie a pasta `premiere-helmet-library` para `C:\Users\<você>\AppData\Roaming\Adobe\CEP\extensions\` (sem o arquivo `.debug`, se ele existir).
-3. Dê dois cliques em **`Add Keys.reg`** se ainda não tiver feito isso para outra extensão Helmet (faz o mesmo que o passo 2 do instalador).
-4. No Premiere: **Janela › Extensões › Helmet Library**.
+1. Download `HelmetLibrary-<version>.zip` from the [releases page](https://github.com/derpbizinoto/helmet-library/releases/latest) and extract it.
+2. Close Premiere.
+3. Double-click **`instalar.bat`** (next to the `premiere-helmet-library` folder). It:
+   1. copies the extension to `%APPDATA%\Adobe\CEP\extensions\premiere-helmet-library` (without the `.debug` debugging file);
+   2. allows unsigned extensions (`PlayerDebugMode`) and checks that it worked;
+   3. warns if there's an old copy in `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions` (it would make the panel show up twice).
 
-### Primeiro uso
+   No administrator needed. Your libraries and settings are not deleted.
+4. In Premiere: **Window › Extensions › Helmet Library**.
 
-Clique em **Adicionar pasta** (embaixo, na barra da esquerda) e escolha uma pasta do computador com seus sons, vídeos, imagens, MOGRTs… Pode adicionar quantas pastas quiser; as subpastas aparecem na árvore do lado esquerdo.
+### Manual way
 
-## Como usar
+1. Close Premiere.
+2. Copy the `premiere-helmet-library` folder to `C:\Users\<you>\AppData\Roaming\Adobe\CEP\extensions\` (without the `.debug` file, if it exists).
+3. Double-click **`Add Keys.reg`** if you haven't already done it for another Helmet extension (it does the same as step 2 of the installer).
+4. In Premiere: **Window › Extensions › Helmet Library**.
 
-- **Adicionar pasta** (embaixo, na barra lateral): escolha uma pasta do computador. Ela vira uma biblioteca, e as subpastas aparecem na árvore. Pode adicionar quantas quiser.
-- Clique numa pasta da árvore para ver os arquivos dela. Os cards de subpasta e o caminho no topo também navegam.
-- **Preview:** clicar num arquivo abre o preview embaixo (áudio e vídeo tocam sozinhos, o que pode ser desligado). Clicar de novo no mesmo arquivo fecha o preview. Vídeos e imagens ganham um preview maior, e a barra de progresso mostra a minutagem exata (passe o mouse para ver o tempo de qualquer ponto, arraste para buscar). O preview só aparece com algum arquivo selecionado: clicar no vazio da grade ou apertar Esc fecha. Ao passar o mouse, só os GIFs animam no card; vídeos e MOGRTs mostram a miniatura parada.
-- **Para usar no projeto:**
-  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**. **Vídeo** vai direto, do mesmo jeito que o Animation Composer arrasta vídeo: só o caminho do arquivo, e quem importa e coloca é o próprio Premiere ao soltar (o vídeo entra onde o Premiere coloca, não na bin Helmet Library). **MOGRT** arrastado aparece por um instante como uma imagem cinza com o nome dele, que vira o MOGRT de verdade no mesmo lugar em até uns 2 segundos (o Premiere não aceita `.mogrt` arrastado de um painel); vários em fila continuam em fila. Como no Animation Composer, a soltura da imagem é desfeita (Ctrl+Z do Premiere) antes de o MOGRT entrar, então o que a imagem cobriu volta inteiro, e o MOGRT fica selecionado. Solto no Source Monitor ou numa timeline sem sequência, a imagem sai e a barra de baixo explica. MOGRT vai num arrasto só dele: se a seleção tiver outros arquivos junto, só os MOGRTs vão e a barra de baixo avisa. MOGRT não entra no painel Project (o Premiere não aceita), então arraste-o para a timeline. As imagens provisórias ficam em `%LOCALAPPDATA%\Helmet Library\arrastar`. Áudio e imagem vão direto, como sempre;
-  - ou **Adicionar** / Enter / duplo clique: coloca na timeline, na posição da agulha, na primeira trilha livre (se não houver, cria uma trilha);
-  - ou **Só no projeto** / Shift+Enter: importa sem mexer na timeline.
-- **Favoritos:** a estrela no card (aparece ao passar o mouse) ou o menu de clique direito.
-- **Busca:** procura na pasta aberta e em todas as subpastas. Para buscar na biblioteca inteira, clique no nome da biblioteca na árvore antes. O seletor ao lado filtra por tipo.
-- **Subpastas juntas:** o botão de camadas, ao lado do contador, mostra numa grade só os arquivos da pasta e de todas as subpastas.
-- **Pitch e Reverse:** mudam só o preview do áudio, nunca o arquivo nem o clipe na timeline.
-- O tamanho das miniaturas fica no controle do canto inferior esquerdo, e a barra lateral pode ser redimensionada arrastando a borda dela.
+### First use
 
-Atalhos: setas para navegar, Ctrl+clique e Shift+clique para selecionar vários, Ctrl+A, Espaço toca e pausa, Ctrl+F vai para a busca, Backspace volta para a pasta de cima, Esc limpa a busca (ou a seleção).
+Click **Add folder** (at the bottom of the left bar) and pick a folder on your computer with your sounds, videos, images, MOGRTs… You can add as many folders as you like; subfolders show up in the tree on the left.
 
-### Formatos
+## How to use
 
-| Tipo | Com preview | Sem preview (aparecem com ícone e podem ser adicionados) |
+- **Add folder** (at the bottom of the sidebar): pick a folder on your computer. It becomes a library, and its subfolders show up in the tree. You can add as many as you like.
+- Click a folder in the tree to see its files. The subfolder cards and the path at the top also navigate.
+- **Preview:** clicking a file opens the preview at the bottom (audio and video play on their own, which can be turned off). Clicking the same file again closes the preview. Videos and images get a larger preview, and the progress bar shows the exact timecode (hover to see the time at any point, drag to seek). The preview only shows while a file is selected: clicking an empty spot in the grid or pressing Esc closes it. On hover, only GIFs animate in the card; videos and MOGRTs show a still thumbnail.
+- **To use it in the project:**
+  - drag the card (or several selected ones) to the **timeline** or the **Project** panel. **Video** goes straight in, the same way Animation Composer drags video: only the file path, and Premiere itself imports and places it on drop (the video lands where Premiere puts it, not in the Helmet Library bin). A dragged **MOGRT** shows up for a moment as a gray image with its name, which turns into the real MOGRT in the same spot within about 2 seconds (Premiere doesn't accept a `.mogrt` dragged from a panel); several in a row stay in a row. As in Animation Composer, the image drop is undone (Premiere's Ctrl+Z) before the MOGRT goes in, so whatever the image covered comes back whole, and the MOGRT stays selected. Dropped on the Source Monitor or on a timeline without a sequence, the image is removed and the bottom bar explains why. MOGRTs go in a drag of their own: if the selection has other files too, only the MOGRTs go and the bottom bar tells you. MOGRTs don't go into the Project panel (Premiere doesn't accept them), so drag them to the timeline. The temporary images live in `%LOCALAPPDATA%\Helmet Library\arrastar`. Audio and images go straight in, as always;
+  - or **Add** / Enter / double-click: places it on the timeline, at the playhead, on the first free track (if there isn't one, it creates a track);
+  - or **Project only** / Shift+Enter: imports without touching the timeline.
+- **Favorites:** the star on the card (shows on hover) or the right-click menu.
+- **Search:** searches the open folder and all its subfolders. To search the whole library, click the library's name in the tree first. The selector next to it filters by type.
+- **Subfolders together:** the layers button, next to the counter, shows the files of the folder and all its subfolders in a single grid.
+- **Pitch and Reverse:** only change the audio preview, never the file or the clip on the timeline.
+- The thumbnail size is in the control at the bottom-left corner, and the sidebar can be resized by dragging its edge.
+
+Shortcuts: arrow keys to navigate, Ctrl+click and Shift+click to select several, Ctrl+A, Space plays and pauses, Ctrl+F goes to search, Backspace goes up a folder, Esc clears the search (or the selection).
+
+### Formats
+
+| Type | With preview | Without preview (shown with an icon and can be added) |
 |---|---|---|
-| Vídeo | MP4, M4V, MOV (H.264), WebM | MOV ProRes/outros codecs, AVI, MXF, MKV, WMV, MPG, MTS |
-| Áudio | WAV, MP3, M4A, AAC, OGG, FLAC (forma de onda) | AIF/AIFF, WMA |
-| Imagem | JPG, PNG, GIF (animado), BMP, WebP, SVG | PSD, AI, EPS, TIFF, TGA, EXR, DPX |
-| MOGRT | miniatura e vídeo de preview de dentro do `.mogrt`, com o nome em pt-BR quando o template tiver | — |
-| Outros | — | AEP, PRPROJ, AEGRAPHIC, FFX, CUBE, SRT, XML |
+| Video | MP4, M4V, MOV (H.264), WebM | MOV ProRes/other codecs, AVI, MXF, MKV, WMV, MPG, MTS |
+| Audio | WAV, MP3, M4A, AAC, OGG, FLAC (waveform) | AIF/AIFF, WMA |
+| Image | JPG, PNG, GIF (animated), BMP, WebP, SVG | PSD, AI, EPS, TIFF, TGA, EXR, DPX |
+| MOGRT | thumbnail and preview video from inside the `.mogrt` | — |
+| Other | — | AEP, PRPROJ, AEGRAPHIC, FFX, CUBE, SRT, XML |
 
-Com "Mostrar outros arquivos" ligado nas configurações, a grade lista também o que o Premiere não importa. A lista de formatos fica em `client/js/config.js`.
+With "Show other files" on in the settings, the grid also lists what Premiere doesn't import. The format list is in `client/js/config.js`.
 
-## Configurações (ícone de controles no topo)
+## Settings (controls icon at the top)
 
-- **Onde salvar os previews:**
-  - *Dentro da biblioteca* (padrão): numa pasta oculta `.helmet-previews` na raiz de cada biblioteca. A chave usa o caminho relativo, então se você copiar a biblioteca para outro HD ou PC, os previews vão junto.
-  - *Cache do sistema*: em `%LOCALAPPDATA%\Helmet Library\cache`, sem gravar nada nas pastas da biblioteca. Use esta opção se a biblioteca estiver numa pasta só de leitura (o painel avisa quando não consegue gravar).
-  - *Limpar previews*: pede confirmação, mostra quantos arquivos e quanto espaço, e apaga só os arquivos de preview criados pela extensão (seus vídeos, sons e imagens nunca são tocados). Os previews são refeitos quando as pastas forem abertas de novo.
-- **Importar numa bin "Helmet Library"** e **Recriar as pastas como bins** (ex.: `Helmet Library › SFX › Whooshes`). O mesmo arquivo nunca é importado duas vezes: se já estiver na bin, ele é reaproveitado.
-- **Duplo clique:** escolhe entre adicionar na timeline e importar só no projeto.
-- **Tocar ao selecionar** e **Mostrar outros arquivos**.
-- **Language / Idioma:** o painel abre em inglês; escolha *Português (Brasil)* para trocar. Vale na hora e fica salvo.
+- **Where to save previews:**
+  - *Inside the library* (default): in a hidden `.helmet-previews` folder at the root of each library. The key uses the relative path, so if you copy the library to another drive or PC, the previews come along.
+  - *System cache*: in `%LOCALAPPDATA%\Helmet Library\cache`, without writing anything into the library folders. Use this option if the library is in a read-only folder (the panel warns when it can't write).
+  - *Clear previews*: asks for confirmation, shows how many files and how much space, and deletes only the preview files created by the extension (your videos, sounds and images are never touched). Previews are rebuilt when the folders are opened again.
+- **Import into a "Helmet Library" bin** and **Recreate folders as bins** (e.g. `Helmet Library › SFX › Whooshes`). The same file is never imported twice: if it's already in the bin, it's reused.
+- **Double-click on a file:** choose between adding to the timeline and only importing into the project.
+- **Play on select** and **Show other files**.
+- **Language / Idioma:** the panel opens in English; pick *Português (Brasil)* to switch. Takes effect immediately and is saved.
 
-As pastas são vigiadas: arquivos novos aparecem sozinhos (o botão de atualizar força a releitura).
+Folders are watched: new files show up on their own (the refresh button forces a reread).
 
-## Seus dados
+## Your data
 
-- As bibliotecas, os favoritos e as configurações ficam em `%APPDATA%\Helmet Library\config.json`, que não é apagado ao reinstalar.
-- Cada gravação é feita num arquivo temporário e só depois troca o original (uma queda de energia não deixa o arquivo pela metade), e a versão anterior fica guardada em `config.json.bak`.
-- Se o `config.json` estragar, o painel avisa, guarda o arquivo estragado como `config.corrompido-<data>.json` (nada é apagado) e recupera o backup. Sem backup, começa vazio.
-- Se não der para salvar (disco cheio, sem permissão), aparece um aviso na barra de baixo.
+- Libraries, favorites and settings are in `%APPDATA%\Helmet Library\config.json`, which isn't deleted when you reinstall.
+- Every save goes to a temporary file first and only then replaces the original (a power outage doesn't leave the file half-written), and the previous version is kept in `config.json.bak`.
+- If `config.json` gets corrupted, the panel warns you, keeps the broken file as `config.corrompido-<date>.json` (nothing is deleted) and restores the backup. Without a backup, it starts empty.
+- If it can't save (disk full, no permission), a warning shows in the bottom bar.
 
-## HD externo, pasta de rede e bibliotecas grandes
+## External drives, network folders and large libraries
 
-- Uma biblioteca cuja pasta sumiu (HD desligado, rede fora, pasta movida ou renomeada) aparece marcada na árvore e, ao clicar, o painel explica o que fazer. Quando o HD ou a rede voltam, ela volta sozinha (o painel confere ao abrir, ao clicar, ao atualizar e quando você volta para o painel).
-- Favoritos que não foram encontrados são contados num aviso.
-- Nada disso trava o painel: as leituras do disco não bloqueiam a tela, e os previews são gerados só para os cards que aparecem na tela, dois por vez.
-- A busca e o "Subpastas juntas" mostram no máximo 20.000 arquivos (com aviso). O resultado fica guardado por 30 segundos, então digitar na busca não relê o disco a cada letra.
+- A library whose folder is gone (drive unplugged, network down, folder moved or renamed) is marked in the tree and, when clicked, the panel explains what to do. When the drive or the network comes back, it comes back on its own (the panel checks on open, on click, on refresh and when you return to the panel).
+- Favorites that weren't found are counted in a warning.
+- None of this freezes the panel: disk reads don't block the screen, and previews are only generated for the cards on screen, two at a time.
+- Search and "Subfolders together" show at most 20,000 files (with a warning). The result is kept for 30 seconds, so typing in the search doesn't reread the disk on every letter.
 
-## Limitações conhecidas
+## Known limitations
 
-- **MOGRT só no projeto:** algumas versões do Premiere não importam `.mogrt` direto no painel Project por script. Nesse caso a extensão avisa, e o MOGRT pode ir para a timeline normalmente (botão Adicionar, duplo clique ou arrastando).
-- **Duração do MOGRT:** o espaço livre na trilha é conferido em 1 s a partir da agulha, porque a duração do template só é conhecida depois de inserido.
-- **Áudio acima de 300 MB:** não ganha forma de onda e toca pelo player simples, sem Pitch e Reverse (decodificar o arquivo inteiro pesaria demais na memória).
-- **Vídeo com trilhas desencontradas:** um vídeo precisa de V e A livres com o mesmo número. Exemplo: numa sequência com só V1/A1, com a agulha parada, adicionar dois áudios (o segundo cria a A2) e depois um vídeo dá "Não há trilha livre na posição da agulha", porque a extensão cria V2/A3 e procura o par V2/A2. Para contornar, mova a agulha ou crie uma trilha de vídeo à mão. Comportamento antigo, mantido de propósito nesta versão (item P1 da `AUDITORIA.md`).
-- **Assinatura:** a extensão ainda não é assinada (`.zxp`), por isso o instalador liga o `PlayerDebugMode`.
+- **MOGRT into the project only:** some Premiere versions don't import a `.mogrt` straight into the Project panel by script. In that case the extension warns you, and the MOGRT can go to the timeline as usual (Add button, double-click or dragging).
+- **MOGRT duration:** free space on the track is checked for 1 s from the playhead, because the template's duration is only known after it's inserted.
+- **Audio over 300 MB:** gets no waveform and plays through the simple player, without Pitch and Reverse (decoding the whole file would weigh too much on memory).
+- **Video with mismatched tracks:** a video needs a free V and A with the same number. Example: in a sequence with only V1/A1, with the playhead still, adding two audio files (the second creates A2) and then a video gives "There's no free track at the playhead", because the extension creates V2/A3 and looks for the V2/A2 pair. To work around it, move the playhead or create a video track by hand. Old behavior, kept on purpose in this version (item P1 in `AUDITORIA.md`).
+- **Signing:** the extension isn't signed yet (`.zxp`), so the installer turns on `PlayerDebugMode`.
 
-## Estrutura
+## Structure
 
 ```
 premiere-helmet-library/
-  CSXS/manifest.xml        manifesto CEP (Node ligado: --enable-nodejs e --mixed-context)
-  client/index.html        painel (com Content-Security-Policy: nada de script embutido nem da internet)
-  client/css/style.css     identidade Violet Terminal
+  CSXS/manifest.xml        CEP manifest (Node on: --enable-nodejs and --mixed-context)
+  client/index.html        panel (with a Content-Security-Policy: no inline or internet scripts)
+  client/css/style.css     Violet Terminal identity
   client/js/
-    config.js              versão, tipos de arquivo, padrões, limites e tempos; HL.log / HL.warn
-    i18n.js                idioma do painel e o dicionário de tradução para o inglês (logo depois do config.js)
-    bridge.js              ponte única painel → Premiere (JSON nos dois sentidos)
-    library.js             parte Node: config.json, leitura das pastas, atalhos, cache, leitor de .mogrt, vigia, programas do Windows
-    demo.js                biblioteca de exemplo quando aberto fora do Premiere (navegador comum)
-    previews.js            miniaturas, frames de vídeo e formas de onda (fila com 2 por vez)
-    player.js              player de baixo (Web Audio para pitch/reverse, <video>, <img>)
-    app.js                 base da interface: estado, elementos, barra de status, favoritos
-    tree.js                árvore da barra lateral
-    grid.js                grade: listagem, cards, seleção, teclado, arrastar
-    host.js                adicionar ao Premiere
-    libraries.js           bibliotecas: adicionar, remover, vigiar, desconectadas, limpar previews
-    menus.js               menus de clique direito e diálogo de confirmação
-    settings.js            janela de configurações
-    main.js                barra superior e início do painel
-  host/index.jsx           ExtendScript: importa na bin, coloca na timeline (trilha livre), importMGT para MOGRT
-  icons/                   ícones do painel
-instalar.bat               instalador (Windows)
-Add Keys.reg               libera extensões não assinadas (alternativa manual)
-empacotar.ps1              gera o .zip para distribuir
-tests/                     testes automáticos (Node)
-AUDITORIA.md               auditoria de segurança e limpeza, testes no Premiere e o arrastar
+    config.js              version, file types, defaults, limits and timings; HL.log / HL.warn
+    i18n.js                panel language and the English translation dictionary (right after config.js)
+    bridge.js              the single panel → Premiere bridge (JSON both ways)
+    library.js             Node side: config.json, folder reading, shortcuts, cache, .mogrt reader, watcher, Windows programs
+    demo.js                sample library when opened outside Premiere (regular browser)
+    previews.js            thumbnails, video frames and waveforms (queue, 2 at a time)
+    player.js              bottom player (Web Audio for pitch/reverse, <video>, <img>)
+    app.js                 UI base: state, elements, status bar, favorites
+    tree.js                sidebar tree
+    grid.js                grid: listing, cards, selection, keyboard, dragging
+    host.js                adding to Premiere
+    libraries.js           libraries: add, remove, watch, disconnected, clear previews
+    menus.js               right-click menus and confirmation dialog
+    settings.js            settings window
+    main.js                top bar and panel startup
+  host/index.jsx           ExtendScript: imports into the bin, places on the timeline (free track), importMGT for MOGRTs
+  icons/                   panel icons
+instalar.bat               installer (Windows)
+Add Keys.reg               allows unsigned extensions (manual alternative)
+empacotar.ps1              builds the .zip for distribution
+tests/                     automated tests (Node)
+AUDITORIA.md               security and cleanup audit, Premiere tests and dragging (Portuguese)
 ```
 
-## Para quem mexe no código
+## For developers
 
-### Testes automáticos
+### Automated tests
 
-Precisa do [Node.js](https://nodejs.org). Na pasta do projeto:
+You need [Node.js](https://nodejs.org). In the project folder:
 
 ```bash
 node tests/run-tests.js
 ```
 
-Testam o que dá para testar fora do Premiere: configuração (backup, arquivo estragado), pastas e atalhos, cache, leitor de `.mogrt` (inclusive arquivos danificados), ponte com o Premiere com nomes difíceis e o `host/index.jsx` rodando num "Premiere de mentira" (`tests/premiere-mock.js`). O que só dá para ver no Premiere (arrastar, Esc, painel desconectado) precisa ser testado no Premiere.
+They test what can be tested outside Premiere: settings (backup, corrupted file), folders and shortcuts, cache, the `.mogrt` reader (including damaged files), the Premiere bridge with tricky names and `host/index.jsx` running on a "fake Premiere" (`tests/premiere-mock.js`). What can only be seen in Premiere (dragging, Esc, disconnected panel) needs to be tested in Premiere.
 
-### Gerar o pacote
+### Building the package
 
 ```bash
 powershell -ExecutionPolicy Bypass -File .\empacotar.ps1
 ```
 
-Gera `dist\HelmetLibrary-<versão>.zip` com a extensão, o `instalar.bat`, o `Add Keys.reg`, este README e o CHANGELOG. Para com erro se as quatro versões não baterem (as duas do `manifest.xml`, `CLIENT_VERSION` em `client/js/config.js` e `HL_HOST_VERSION` em `host/index.jsx`) ou se achar certificado, chave ou `.debug`.
+Builds `dist\HelmetLibrary-<version>.zip` with the extension, `instalar.bat`, `Add Keys.reg`, the READMEs, the LICENSE and the CHANGELOG. It stops with an error if the four versions don't match (the two in `manifest.xml`, `CLIENT_VERSION` in `client/js/config.js` and `HL_HOST_VERSION` in `host/index.jsx`) or if it finds a certificate, key or `.debug`.
 
-### Regras que a extensão segue
+### Rules the extension follows
 
-- Texto de arquivo (nomes, títulos de MOGRT) entra na tela só como texto (`textContent`), nunca como HTML.
-- Tudo que vai para o Premiere passa pelo `bridge.js` em JSON; o `index.jsx` responde sempre `{ ok, data, error }`.
-- Programas do Windows (Explorer, `attrib`) são chamados pelo caminho completo, com argumentos em lista, sem prompt de comando.
-- Atalhos (links) só são seguidos se apontarem para dentro da mesma biblioteca; a pasta de previews nunca pode ser um atalho.
-- Nada de `eval`, de `innerHTML` com dados ou de arquivos da internet.
-- **Textos:** escritos em português dentro de `tr("…")` (ou `N("…")` para frases guardadas, mostradas
-  depois com `tr()`/`trMsg()`); a tradução para o inglês fica no dicionário `EN` de `client/js/i18n.js`.
-  As mensagens do `host/index.jsx` continuam em português e o painel traduz ao receber. Frase nova sem tradução
-  faz os testes falharem.
+- Text from files (names, MOGRT titles) goes on screen only as text (`textContent`), never as HTML.
+- Everything sent to Premiere goes through `bridge.js` as JSON; `index.jsx` always answers `{ ok, data, error }`.
+- Windows programs (Explorer, `attrib`) are called by their full path, with an argument list, without a command prompt.
+- Shortcuts (links) are only followed if they point inside the same library; the previews folder can never be a shortcut.
+- No `eval`, no `innerHTML` with data and no files from the internet.
+- **Text:** written in Portuguese inside `tr("…")` (or `N("…")` for stored sentences, shown
+  later with `tr()`/`trMsg()`); the English translation lives in the `EN` dictionary in `client/js/i18n.js`.
+  Messages from `host/index.jsx` stay in Portuguese and the panel translates them on arrival. A new sentence without a translation
+  makes the tests fail.
 
-### Depuração
+### Debugging
 
-- **Console:** em `client/js/config.js`, `DEBUG: true` mostra no console do painel detalhes que normalmente ficam escondidos (falhas de preview, arrastar, vigia de pastas). Volte para `false` antes de distribuir.
-- **Porta de depuração:** o arquivo `premiere-helmet-library/.debug` liga a porta 8099 (com o painel aberto, acesse `http://localhost:8099` no Chrome). Ele **não fica no git e não vai na instalação**: com o Node ligado, quem se conecta nessa porta consegue rodar programas no computador. Para depurar na sua máquina, crie o arquivo com o conteúdo abaixo e copie a pasta da extensão à mão (o `instalar.bat` apaga o `.debug`).
+- **Console:** in `client/js/config.js`, `DEBUG: true` shows details in the panel console that are normally hidden (preview failures, dragging, folder watcher). Set it back to `false` before distributing.
+- **Debugging port:** the `premiere-helmet-library/.debug` file turns on port 8099 (with the panel open, go to `http://localhost:8099` in Chrome). It's **not in git and doesn't go into the install**: with Node on, anyone who connects to that port can run programs on the computer. To debug on your machine, create the file with the content below and copy the extension folder by hand (`instalar.bat` deletes `.debug`).
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -174,4 +181,8 @@ Gera `dist\HelmetLibrary-<versão>.zip` com a extensão, o `instalar.bat`, o `Ad
 </ExtensionList>
 ```
 
-Aberto direto num navegador, o `client/index.html` entra em modo de demonstração com uma biblioteca de exemplo, útil para mexer no layout.
+Opened directly in a browser, `client/index.html` goes into demo mode with a sample library, handy for working on the layout.
+
+## License
+
+[MIT](LICENSE). The Geo and Roboto fonts have their own license (SIL Open Font License 1.1, see the license texts in `client/fonts/`).
