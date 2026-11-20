@@ -195,11 +195,13 @@ Nenhum **Crítico** encontrado.
 | **L7** | raiz | Não há `.gitignore` nem `.gitattributes`. | `.gitignore` cobrindo `node_modules/`, `dist/`, `build/`, `*.zxp`, `*.zip`, certificados e chaves (`*.p12`, `*.pfx`, `*.key`, `*.pem`, `*.crt`, `*.cer`), `.debug`, `.helmet-previews/`, temporários e lixo do Windows. `.gitattributes` mantendo `.bat` com quebra de linha do Windows (lição do Helmet Cutter). |
 | **L8** | Add Keys.reg | Liga CSXS 5 a 15 (o `instalar.bat` liga 9 a 16) e também o `LogLevel`. | Igual aos outros dois: CSXS 9 a 16, só `PlayerDebugMode`. |
 | **L9** | — | Não há script de empacotamento; hoje o "pacote" é a pasta inteira (com `.debug`). | `empacotar.ps1` que gera `dist\HelmetLibrary-<versão>.zip` só com o necessário e **para com erro** se achar `.debug`, certificado ou chave, ou se as versões não baterem. |
-| **L10** | host/index.jsx | Salvo **sem BOM**, mas tem mensagens com acento ("Arquivo **não** encontrado", "**Não** há trilha livre", "Abra uma **sequência**"): o ExtendScript lê arquivo sem BOM na codificação antiga do Windows, então essas mensagens provavelmente aparecem embaralhadas no rodapé ("nÃ£o"). | Salvar em UTF-8 com BOM (como no Helmet Cutter e no Helmet DL). Se você já viu essas mensagens certinhas, me avise. |
+| **L10** | host/index.jsx | Salvo **sem BOM** e com mensagens acentuadas ("Arquivo **não** encontrado"). **Você confirmou que os acentos aparecem certos no Premiere**, então não há bug. | Salvar em UTF-8 com BOM só para ficar igual ao Helmet Cutter e ao Helmet DL e não depender de como o Premiere adivinha a codificação. Os acentos continuam certos (confere no roteiro de testes). |
 | **L11** | manifest.xml:3, 6; main.js:9; index.jsx:7 | A versão aparece em quatro lugares. | Manter (o aviso "painel ≠ host" depende disso), mas o `empacotar.ps1` confere se os quatro batem. |
 | **L12** | premiere-helmet-library/README.md; como instalar.txt | README dentro da pasta da extensão; `como instalar.txt` repete o README; não há CHANGELOG nem roteiro de testes. | README na raiz, `CHANGELOG.md`, `TESTES.md` (fase final). |
 | **L13** | manifest.xml:2 | O ID da extensão é `com.seuestudio.helmetlibrary` ("seu estúdio", texto de modelo). | **Não mudar:** trocar o ID faz o Premiere tratar como outra extensão. Só registro. |
 | **L14** | — | Não há testes automáticos. | `tests\run-tests.js` (Node puro, como nos outros dois) para o que não depende do Premiere: tipos de arquivo, "está dentro da biblioteca", chave do cache, leitor de `.mogrt` com arquivos de teste (inclusive danificados), recuperação do `config.json`, filtro de nomes do "Limpar previews", serialização da ponte; e um "Premiere de mentira" para testar o `index.jsx`. |
+
+| **L15** | instalar.bat | Já existe e é quase idêntico ao do Helmet DL **antes** da limpeza: não tira o `.debug`, não diz a versão, não confere se o registro foi gravado, e não avisa se existe uma cópia instalada pelo jeito manual (`C:\Program Files (x86)\Common Files\Adobe\CEP\extensions`), o que deixaria a extensão duplicada. | Deixar no modelo do `instalar.bat` do Helmet Cutter (sem a parte do "Silence Cutter antigo", que não se aplica): [1/3] copiar e tirar o `.debug`, [2/3] liberar extensões não assinadas conferindo erro, [3/3] avisar de cópia antiga em `Program Files (x86)`. Mantém o aviso de que as bibliotecas e configurações não são apagadas. |
 
 ### Arquivos cujo uso não está claro — preciso que você decida (D1)
 
@@ -237,7 +239,7 @@ Nenhum **Crítico** encontrado.
 | # | Etapa | Itens |
 |---|---|---|
 | 1 | Arquivos do repositório: `.gitignore`, `.gitattributes`, `.debug` fora do git, decisões D1, README na raiz, `Add Keys.reg` | L7, L8, L12 (parte), D1, A1 (parte) |
-| 2 | Instalação e pacote: `instalar.bat` sem `.debug`; `empacotar.ps1` com conferência de versões | A1, L9, L11 |
+| 2 | Instalação e pacote: `instalar.bat` no modelo do Helmet Cutter (etapas numeradas, versão, sem `.debug`, confere se o registro foi gravado, avisa de cópia antiga em `Program Files (x86)`); `empacotar.ps1` com conferência de versões | A1, L9, L11, L15 |
 | 3 | `config.json` seguro: backup, recuperação com aviso, conferência dos campos | A2 |
 | 4 | Caminhos e exclusões: atalhos de pasta, cache nunca em atalho, "Limpar previews" só apaga previews e pede confirmação, cache de preview conferido, segunda trava antes de mandar ao Premiere | M3, M4, B2, B3, D3, D4 |
 | 5 | MOGRT: limites de tamanho e leitura sem travar a tela | M5 |
