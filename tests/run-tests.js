@@ -619,6 +619,73 @@ test("host: o mesmo arquivo duas vezes na mesma bin é reaproveitado", async () 
     assert.strictEqual(host.app.project.imports.length, 1);
 });
 
+// Vídeo pré-importado ao arrastar (1.3.1) e solto no painel Project: o Premiere cria uma cópia própria.
+async function preImportedVideo(host, bridge, name, sub) {
+    const file = path.join(tmpDir("midia"), name);
+    touch(file);
+    const data = await bridge.call("hl_add", [file, "video", false, "Helmet Library", sub || ""]);
+    assert.strictEqual(data.reused, false);
+    assert.ok(data.nodeId, "hl_add devolve o nodeId");
+    return { file, data };
+}
+function copiesOf(bin, file, out) {
+    out = out || [];
+    bin.children.forEach((c) => { if (c.type === 2) copiesOf(c, file, out); else if (c.file === path.resolve(file)) out.push(c); });
+    return out;
+}
+
+test("host: vídeo solto no Project não fica duplicado (sai a cópia pré-importada e a bin vazia)", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const root = host.app.project.rootItem;
+    const v = await preImportedVideo(host, bridge, "clipe.mp4", "Teste/Sub");
+    root.add(new mock.ClipItem(path.resolve(v.file), 10));          // o que o Premiere cria ao soltar no Project
+    const r = await bridge.call("hl_dropDuplicate", [v.file, v.data.nodeId]);
+    assert.strictEqual(r.removed, true);
+    const left = copiesOf(root, v.file);
+    assert.strictEqual(left.length, 1, "fica uma cópia só");
+    assert.notStrictEqual(left[0].nodeId, v.data.nodeId, "fica a que o usuário soltou");
+    eq(root.children.map((c) => c.name), ["clipe.mp4"], "bins vazias e bin temporária somem");
+});
+
+test("host: cópia pré-importada fica se não há duplicata, se está numa sequência ou se a bin tem mais coisas", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const root = host.app.project.rootItem;
+
+    // solto na timeline usando a própria cópia: não há outra, nada sai
+    const a = await preImportedVideo(host, bridge, "a.mp4");
+    assert.strictEqual((await bridge.call("hl_dropDuplicate", [a.file, a.data.nodeId])).removed, false);
+    assert.strictEqual(copiesOf(root, a.file).length, 1);
+
+    // há outra cópia, mas a pré-importada está na timeline: fica
+    const b = await preImportedVideo(host, bridge, "b.mp4");
+    const ours = copiesOf(root, b.file)[0];
+    host.app.project.activeSequence.videoTracks[0].overwriteClip(ours, 0);
+    root.add(new mock.ClipItem(path.resolve(b.file), 10));
+    assert.strictEqual((await bridge.call("hl_dropDuplicate", [b.file, b.data.nodeId])).removed, false);
+    assert.strictEqual(copiesOf(root, b.file).length, 2);
+
+    // duplicata solta no Project: sai só ela; a bin Helmet Library continua (tem a.mp4 e b.mp4)
+    const c = await preImportedVideo(host, bridge, "c.mp4");
+    root.add(new mock.ClipItem(path.resolve(c.file), 10));
+    assert.strictEqual((await bridge.call("hl_dropDuplicate", [c.file, c.data.nodeId])).removed, true);
+    const lib = root.children.find((x) => x.name === "Helmet Library");
+    eq(lib.children.map((x) => x.name), ["a.mp4", "b.mp4"]);
+    assert.ok(!root.children.some((x) => /removendo/.test(x.name)), "sem bin temporária sobrando");
+});
+
+test("host: sem conseguir conferir as sequências, não remove nada", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const root = host.app.project.rootItem;
+    const v = await preImportedVideo(host, bridge, "d.mp4");
+    root.add(new mock.ClipItem(path.resolve(v.file), 10));
+    Object.defineProperty(host.app.project, "sequences", { get() { throw new Error("sem acesso"); } });
+    assert.strictEqual((await bridge.call("hl_dropDuplicate", [v.file, v.data.nodeId])).removed, false);
+    assert.strictEqual(copiesOf(root, v.file).length, 2);
+});
+
 test("host: timeline na primeira trilha livre; cria trilha quando todas estão ocupadas", async () => {
     const seq = new mock.Sequence(1, 1);
     const host = loadHost({ sequence: seq });

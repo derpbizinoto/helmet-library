@@ -3,12 +3,12 @@
 // opcionalmente espelhando as subpastas) e coloca o clipe na timeline, na posição da agulha,
 // na primeira trilha livre. MOGRTs entram com sequence.importMGT().
 //
-// O painel só chama as funções públicas (hl_add, hl_getHostVersion) pela ponte única
+// O painel só chama as funções públicas (hl_add, hl_dropDuplicate, hl_getHostVersion) pela ponte única
 // (client/js/bridge.js), com cada argumento como literal JSON. Toda função pública passa
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.1";
+var HL_HOST_VERSION = "1.3.2";
 
 // ---------- respostas ----------
 
@@ -88,7 +88,7 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
         var imp = hl_importToBin(fsPath, hl_targetBin(binName, subPath));
         if (!imp.item) throw hl_userError("O Premiere não conseguiu importar este arquivo.");
 
-        if (!wantTimeline) return { where: "project", name: imp.item.name, reused: imp.reused };
+        if (!wantTimeline) return { where: "project", name: imp.item.name, reused: imp.reused, nodeId: hl_nodeId(imp.item) };
         if (!seq) return { where: "project", noSequence: true, name: imp.item.name };
 
         var pos = seq.getPlayerPosition();
@@ -106,6 +106,27 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
 
         return { where: "timeline", name: imp.item.name, track: (needV ? "V" : "A") + (free.index + 1) };
     }, "Erro ao adicionar: ");
+}
+
+// Depois de arrastar um vídeo que o painel pré-importou (nodeId): se ele foi solto no painel
+// Project, o Premiere importa uma cópia própria e a pré-importada fica sobrando. Remove a
+// pré-importada só quando existe outra cópia do mesmo arquivo E ela não está em nenhuma
+// sequência. Na dúvida (não deu para conferir), não remove nada.
+function hl_dropDuplicate(path, nodeId) {
+    return hl_run(function () {
+        if (!app.project) return { removed: false };
+        var copies = [];
+        hl_collectMedia(app.project.rootItem, hl_normPath(String(path)), [], copies);
+        var ours = null;
+        for (var i = 0; i < copies.length; i++) {
+            if (hl_nodeId(copies[i].item) === String(nodeId)) ours = copies[i];
+        }
+        if (!ours || copies.length < 2) return { removed: false };
+        if (hl_inSomeSequence(ours.item) !== false) return { removed: false };
+        if (!hl_removeItem(ours.item, ours.chain[ours.chain.length - 1])) return { removed: false };
+        hl_removeEmptyBins(ours.chain);
+        return { removed: true };
+    }, "Erro ao conferir cópia: ");
 }
 
 // ---------- bins ----------
@@ -187,6 +208,85 @@ function hl_importToBin(path, target) {
     found = hl_findMedia(target, wanted, 0);
     if (!found) found = hl_findMedia(app.project.rootItem, wanted, 0);
     return { item: found, reused: false };
+}
+
+function hl_nodeId(item) {
+    try { return item && item.nodeId !== undefined ? String(item.nodeId) : ""; } catch (e) { return ""; }
+}
+
+// Junta TODAS as cópias de mídia do arquivo wanted. chain: bins do caminho até o item (raiz primeiro).
+function hl_collectMedia(bin, wanted, chain, out) {
+    if (chain.length > 8) return;
+    var here = chain.concat([bin]);
+    var binType = hl_binType();
+    try {
+        for (var i = 0; i < bin.children.numItems; i++) {
+            var c = bin.children[i];
+            if (!c) continue;
+            if (c.type === binType) {
+                hl_collectMedia(c, wanted, here, out);
+            } else {
+                var mp = "";
+                try { mp = c.getMediaPath(); } catch (e) { mp = ""; }
+                if (mp && hl_normPath(mp) === wanted) out.push({ item: c, chain: here });
+            }
+        }
+    } catch (e2) { /* ignora */ }
+}
+
+// true/false se o item está (ou não) em alguma sequência; null se não deu para conferir.
+function hl_inSomeSequence(item) {
+    try {
+        var id = hl_nodeId(item);
+        if (!id) return null;
+        var seqs = app.project.sequences;
+        for (var s = 0; s < seqs.numSequences; s++) {
+            var groups = [seqs[s].videoTracks, seqs[s].audioTracks];
+            for (var g = 0; g < groups.length; g++) {
+                for (var t = 0; t < groups[g].numTracks; t++) {
+                    var clips = groups[g][t].clips;
+                    for (var c = 0; c < clips.numItems; c++) {
+                        var pi = clips[c].projectItem;
+                        if (pi && hl_nodeId(pi) === id) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    } catch (e) {
+        return null;
+    }
+}
+
+function hl_deleteIfEmpty(bin) {
+    try { if (bin.children.numItems === 0) { bin.deleteBin(); return true; } } catch (e) { /* ignora */ }
+    return false;
+}
+
+// O script do Premiere não tem "apagar item": move o item para uma bin temporária só dele e
+// apaga a bin. Se a bin temporária tiver qualquer outra coisa, desfaz e não apaga nada.
+function hl_removeItem(item, parent) {
+    var root = app.project.rootItem;
+    var tmp = hl_getOrCreateBin(root, "Helmet Library - removendo " + new Date().getTime());
+    if (!tmp || tmp === root) return false;
+    function undo() {
+        try { item.moveBin(parent); } catch (e) { /* ignora */ }
+        hl_deleteIfEmpty(tmp);
+        return false;
+    }
+    try { item.moveBin(tmp); } catch (e1) { return undo(); }
+    var onlyOurs = false;
+    try { onlyOurs = tmp.children.numItems === 1 && hl_nodeId(tmp.children[0]) === hl_nodeId(item); } catch (e2) { onlyOurs = false; }
+    if (!onlyOurs) return undo();
+    try { tmp.deleteBin(); } catch (e3) { return undo(); }
+    return true;
+}
+
+// Apaga as bins que ficaram vazias no caminho do item removido (nunca a raiz).
+function hl_removeEmptyBins(chain) {
+    for (var i = chain.length - 1; i >= 1; i--) {
+        if (!hl_deleteIfEmpty(chain[i])) return;
+    }
 }
 
 // ---------- trilhas ----------

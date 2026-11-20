@@ -474,7 +474,7 @@
         dt.setData("text/uri-list", files.map(function (f) { return L.toFileUrl(f.path); }).join("\r\n"));
         dt.setData("text/plain", files.map(function (f) { return f.path; }).join("\n"));
         try { dt.setDragImage(ghostFor(files), 14, 14); } catch (err) { /* usa a imagem padrão */ }
-        app.preImport(files);   // vídeo de fora do projeto entrava só com o áudio (testes 2.8 e outros da 1.3.0)
+        app.preImport(files);   // vídeo de fora do projeto entrava só com o áudio (teste 2.8 da 1.3.0)
         state.dragging = { files: files, el: el };
         el.classList.add("dragging");
         setStatus("Solte na timeline ou no painel Project" + (files.length > 1 ? " (" + files.length + " arquivos)" : "") + ".", "", true);
@@ -484,6 +484,7 @@
         var d = state.dragging;
         state.dragging = null;
         if (d && d.el) d.el.classList.remove("dragging");
+        if (d) app.afterDrag(d.files);   // tira a cópia pré-importada que sobrou se o vídeo foi solto no Project
         var outside = e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight;
         var effect = e.dataTransfer ? e.dataTransfer.dropEffect : "";
         // O dropEffect que volta de outro programa não é confiável (vinha "none" mesmo quando o Premiere

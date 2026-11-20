@@ -4,7 +4,7 @@
 (function (app) {
     "use strict";
 
-    var HL = app.HL, BIN_NAME = app.BIN_NAME, L = app.L, inCEP = app.inCEP, cfg = app.cfg, els = app.els,
+    var HL = app.HL, BIN_NAME = app.BIN_NAME, L = app.L, inCEP = app.inCEP, cs = app.cs, cfg = app.cfg, els = app.els,
         state = app.state, setStatus = app.setStatus, isFav = app.isFav;
 
     // ======================================================================
@@ -59,26 +59,68 @@
         });
     }
 
-    // Ao começar a arrastar: importa no projeto (bin "Helmet Library") em segundo plano.
-    // No teste da 1.3.0 o vídeo arrastado de fora do projeto entrava só com o áudio, e do
-    // segundo arrasto em diante (já importado) entrava certo. Arquivo já importado é reaproveitado
-    // pelo host (não duplica). MOGRT fica de fora: o Premiere duplicaria a cada arrasto.
-    var preImporting = {};
+    // ---------- pré-importação ao arrastar ----------
+    // Vídeo arrastado de fora do projeto entrava só com o áudio (teste 2.8 da 1.3.0); já importado,
+    // entrava certo. Por isso, ao começar a arrastar um VÍDEO, ele é importado na bin em segundo
+    // plano (arquivo já importado é reaproveitado pelo host). Áudio e imagem já entravam certo
+    // arrastando e ficam de fora (1.3.2): assim o Premiere não abre o painel Project à toa.
+    // MOGRT também fica de fora: o Premiere duplicaria a cada arrasto.
+
+    var preImports = {};   // caminho -> Promise(resposta do hl_add, ou null se falhou)
+
     function preImport(files) {
         if (!inCEP) return;
-        files = files.filter(function (f) { return allowedFile(f) && f.kind !== "mogrt" && !preImporting[f.path]; });
-        files.forEach(function (f) { preImporting[f.path] = true; });
-        var i = 0;
-        function next() {
-            if (i >= files.length) return Promise.resolve();
-            var f = files[i++];
+        var chain = Promise.resolve(), fresh = false;
+        files.filter(function (f) { return allowedFile(f) && f.kind === "video" && !preImports[f.path]; }).forEach(function (f) {
             var b = binFor(f);
-            var kind = f.kind === "unknown" ? "other" : f.kind;
-            return HLBridge.call("hl_add", [f.path, kind, false, b.bin, b.sub]).then(null, function (err) {
+            chain = preImports[f.path] = chain.then(function () {
+                return HLBridge.call("hl_add", [f.path, "video", false, b.bin, b.sub]);
+            }).then(function (data) {
+                if (!data.reused) fresh = true;
+                return data;
+            }, function (err) {
                 HL.log("pré-importação falhou", f.path, err && err.message);
-            }).then(function () { delete preImporting[f.path]; }).then(next);
-        }
-        next();
+                return null;
+            });
+        });
+        chain.then(function () { if (fresh) bringPanelBack(); });
+    }
+
+    // Importar faz o Premiere trazer o painel Project para a frente; pede o Helmet Library de volta.
+    function bringPanelBack() {
+        try { cs.requestOpenExtension(cs.getExtensionID(), ""); } catch (e) { HL.log("requestOpenExtension falhou", e); }
+    }
+
+    // Depois de soltar: se o vídeo foi solto no painel Project, o Premiere importa uma cópia própria
+    // e a pré-importada fica sobrando. O host remove a pré-importada só se ela foi criada por este
+    // arrasto, se existe outra cópia do mesmo arquivo e se ela não está em nenhuma sequência.
+    // Confere duas vezes porque o Premiere pode demorar a terminar a importação dele.
+    var DUPLICATE_CHECKS_MS = [1500, 5000];
+    function afterDrag(files) {
+        if (!inCEP) return;
+        files.forEach(function (f) {
+            var pending = preImports[f.path];
+            if (!pending) return;
+            pending.then(function (data) {
+                if (!data || data.reused || !data.nodeId) { delete preImports[f.path]; return; }
+                var n = 0;
+                function check() {
+                    setTimeout(function () {
+                        HLBridge.call("hl_dropDuplicate", [f.path, data.nodeId]).then(function (r) {
+                            return r.removed;
+                        }, function (err) {
+                            HL.log("conferência de cópia falhou", f.path, err && err.message);
+                            return true;
+                        }).then(function (stop) {
+                            n++;
+                            if (stop || n >= DUPLICATE_CHECKS_MS.length) delete preImports[f.path];
+                            else check();
+                        });
+                    }, DUPLICATE_CHECKS_MS[n] - (n ? DUPLICATE_CHECKS_MS[n - 1] : 0));
+                }
+                check();
+            });
+        });
     }
 
     function flashTile(f) {
@@ -99,4 +141,5 @@
     app.allowedFile = allowedFile;
     app.addFiles = addFiles;
     app.preImport = preImport;
+    app.afterDrag = afterDrag;
 })(window.HLApp);

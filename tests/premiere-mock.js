@@ -10,6 +10,13 @@ const path = require("path");
 
 const TPS = 254016000000;
 const BIN = 2, CLIP = 1;
+let nextNodeId = 1000;
+
+function removeFrom(parent, item) {
+    if (!parent) return;
+    const i = parent.children.indexOf(item);
+    if (i >= 0) parent.children.splice(i, 1);
+}
 
 function collection(arr) {
     Object.defineProperty(arr, "numItems", { get() { return arr.length; } });
@@ -20,8 +27,11 @@ function collection(arr) {
 function time(seconds) { return { seconds: seconds, ticks: String(Math.round(seconds * TPS)) }; }
 
 class Bin {
-    constructor(name) { this.type = BIN; this.name = name; this.children = collection([]); }
-    createBin(name) { const b = new Bin(name); this.children.push(b); return b; }
+    constructor(name) { this.type = BIN; this.name = name; this.children = collection([]); this.nodeId = String(nextNodeId++); this.parent = null; }
+    createBin(name) { const b = new Bin(name); b.parent = this; this.children.push(b); return b; }
+    add(item) { item.parent = this; this.children.push(item); return item; }
+    // apagar uma bin apaga tudo o que está dentro dela
+    deleteBin() { removeFrom(this.parent, this); this.parent = null; }
 }
 
 class ClipItem {
@@ -30,7 +40,10 @@ class ClipItem {
         this.name = path.basename(file);
         this.file = file;
         this.duration = duration;
+        this.nodeId = String(nextNodeId++);
+        this.parent = null;
     }
+    moveBin(dest) { removeFrom(this.parent, this); dest.add(this); }
     getMediaPath() { return this.file; }
     getInPoint() { return time(0); }
     getOutPoint() { return time(this.duration); }
@@ -40,7 +53,7 @@ class Track {
     constructor() { this.clips = collection([]); }
     overwriteClip(item, pos) {
         const start = typeof pos === "object" ? pos.seconds : Number(pos);
-        this.clips.push({ item: item, start: time(start), end: time(start + item.duration) });
+        this.clips.push({ item: item, projectItem: item, start: time(start), end: time(start + item.duration) });
     }
 }
 
@@ -70,12 +83,17 @@ function makeContext(opts) {
         rootItem: new Bin("root"),
         activeSequence: opts.sequence === undefined ? new Sequence(3, 3) : opts.sequence,
         imports: [],
+        get sequences() {
+            const list = this.activeSequence ? [this.activeSequence] : [];
+            Object.defineProperty(list, "numSequences", { value: list.length });
+            return list;
+        },
         importFiles(paths, suppress, target) {
             if (/\.mogrt$/i.test(paths[0]) && !opts.mogrtInProject) return false;
             paths.forEach((p) => {
                 this.imports.push(p);
                 const ext = p.split(".").pop().toLowerCase();
-                target.children.push(new ClipItem(p, durations[ext] || 0));
+                target.add(new ClipItem(p, durations[ext] || 0));
             });
             return true;
         }
