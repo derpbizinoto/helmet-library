@@ -53,7 +53,12 @@ class Track {
     constructor() { this.clips = collection([]); }
     overwriteClip(item, pos) {
         const start = typeof pos === "object" ? pos.seconds : Number(pos);
-        this.clips.push({ item: item, projectItem: item, start: time(start), end: time(start + item.duration) });
+        const clips = this.clips;
+        const clip = {
+            item: item, projectItem: item, start: time(start), end: time(start + item.duration),
+            remove() { const i = clips.indexOf(clip); if (i >= 0) clips.splice(i, 1); return 0; }   // 0 = ok, como no Premiere
+        };
+        clips.push(clip);
     }
 }
 

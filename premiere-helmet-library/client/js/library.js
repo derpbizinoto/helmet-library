@@ -58,6 +58,29 @@
         return path.join(base, APP_NAME, "cache");
     }
 
+    // ---------- arrastar MOGRT (1.3.4) ----------
+    // O Premiere não aceita .mogrt arrastado de um painel. Arrasta-se no lugar uma imagem provisória
+    // com o nome do MOGRT (imagem entra arrastando sem problema); ao soltar, o host troca a imagem
+    // pelo MOGRT na mesma posição. Fica em %LOCALAPPDATA%\Helmet Library\arrastar (fora do cache de
+    // previews, então "Limpar previews" não mexe nela). Uma pasta por MOGRT, para o nome ficar igual.
+    var PLACEHOLDER_PNG = "iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA0UlEQVR42u3SQREAAAzCMPzg3x8itmciodcUDiIBBsJAGAgDgYEwEAbCQGAgDISBMBAYCANhIAwEBsJAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMBAbCQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA/Fpr4vTWZGX4dwAAAAASUVORK5CYII=";
+
+    function dragPlaceholderDir() { return path.join(path.dirname(systemCacheDir()), "arrastar"); }
+
+    // Devolve o caminho da imagem provisória do MOGRT (cria se não existir). Síncrono: é chamado
+    // no começo do arrasto, quando os dados do arrasto precisam estar prontos na hora.
+    function dragPlaceholder(mogrtPath) {
+        var key = crypto.createHash("sha1").update(path.resolve(mogrtPath).toLowerCase()).digest("hex").slice(0, 16);
+        var dir = path.join(dragPlaceholderDir(), key);
+        var base = path.basename(mogrtPath).replace(/\.mogrt$/i, "") || "MOGRT";
+        var file = path.join(dir, base + ".png");
+        if (!fs.existsSync(file)) {
+            mkdirp(dir);
+            fs.writeFileSync(file, Buffer.from(PLACEHOLDER_PNG, "base64"));
+        }
+        return file;
+    }
+
     function configPath() { return path.join(appDataDir(), "config.json"); }
     function backupPath() { return configPath() + ".bak"; }
 
@@ -698,6 +721,7 @@
         cacheInfo: cacheInfo,
         ensureCacheDir: ensureCacheDir,
         systemCacheDir: systemCacheDir,
+        dragPlaceholder: dragPlaceholder,
         cacheSize: cacheSize,
         clearCache: clearCache,
         removePreview: removePreview,

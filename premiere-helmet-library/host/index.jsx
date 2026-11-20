@@ -3,12 +3,12 @@
 // opcionalmente espelhando as subpastas) e coloca o clipe na timeline, na posição da agulha,
 // na primeira trilha livre. MOGRTs entram com sequence.importMGT().
 //
-// O painel só chama as funções públicas (hl_add, hl_dropDuplicate, hl_getHostVersion) pela ponte única
+// O painel só chama as funções públicas (hl_add, hl_dropDuplicate, hl_swapPlaceholder, hl_getHostVersion) pela ponte única
 // (client/js/bridge.js), com cada argumento como literal JSON. Toda função pública passa
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.3";
+var HL_HOST_VERSION = "1.3.4";
 
 // ---------- respostas ----------
 
@@ -127,6 +127,84 @@ function hl_dropDuplicate(path, nodeId) {
         hl_removeEmptyBins(ours.chain);
         return { removed: true };
     }, "Erro ao conferir cópia: ");
+}
+
+// Arrastar MOGRT: o painel arrasta uma imagem provisória (placeholder) no lugar do .mogrt, que o
+// Premiere não aceita arrastado. Depois de soltar, troca cada clipe dessa imagem na sequência ativa
+// pelo MOGRT, no mesmo tempo e trilha, e tira a imagem do projeto (só as cópias fora de sequências).
+// lastTry: última conferência; se a imagem só está no projeto (foi solta no painel Project), ela é
+// retirada e o MOGRT vai "só no projeto". Antes disso, imagem só no projeto pode ser o Premiere
+// ainda terminando de colocar na timeline, então espera a próxima conferência.
+function hl_swapPlaceholder(placeholder, mogrtPath, binName, subPath, lastTry) {
+    return hl_run(function () {
+        if (!app.project) return { swapped: 0 };
+        var wanted = hl_normPath(String(placeholder));
+        var mogrt = new File(String(mogrtPath));
+        if (!mogrt.exists) throw hl_userError("MOGRT não encontrado (foi movido, apagado ou está num HD/pasta de rede desconectado).");
+        var seq = app.project.activeSequence;
+        var spots = seq ? hl_placeholderClips(seq, wanted) : [];
+
+        if (!spots.length) {
+            if (lastTry !== true) return { swapped: 0 };
+            var copies = [];
+            hl_collectMedia(app.project.rootItem, wanted, [], copies);
+            if (!copies.length) return { swapped: 0 };              // arrasto cancelado
+            hl_removePlaceholderItems(copies);
+            return hl_addMogrt(mogrt.fsName, seq, false, String(binName || ""), String(subPath || ""));
+        }
+
+        var name = "", track = "";
+        for (var i = 0; i < spots.length; i++) {
+            var s = spots[i];
+            try { s.clip.remove(false, false); } catch (e) { /* conferido abaixo */ }
+            if (hl_spotStillThere(seq, wanted, s)) throw hl_userError("O Premiere não deixou trocar a imagem provisória pelo MOGRT. Use o botão Adicionar.");
+            var aIdx = hl_findFreeIndex(seq, s.seconds, s.seconds + 1, false, true);
+            if (aIdx < 0) aIdx = 0;
+            var ti = null;
+            try { ti = seq.importMGT(mogrt.fsName, s.ticks, s.track, aIdx); } catch (e1) { ti = null; }
+            if (!ti) { try { ti = seq.importMGT(mogrt.fsName, String(s.ticks), s.track, aIdx); } catch (e2) { ti = null; } }
+            if (!ti) throw hl_userError("O Premiere não conseguiu inserir o MOGRT (versão ou template incompatível?).");
+            try { name = ti.name; } catch (e3) { name = mogrt.displayName; }
+            track = "V" + (s.track + 1);
+        }
+        var left = [];
+        hl_collectMedia(app.project.rootItem, wanted, [], left);
+        hl_removePlaceholderItems(left);
+        return { swapped: spots.length, name: name, track: track };
+    }, "Erro ao trocar o MOGRT: ");
+}
+
+// Clipes da imagem provisória nas trilhas de vídeo da sequência: { clip, track, ticks, seconds }.
+function hl_placeholderClips(seq, wanted) {
+    var out = [];
+    for (var t = 0; t < seq.videoTracks.numTracks; t++) {
+        var clips = seq.videoTracks[t].clips;
+        for (var c = 0; c < clips.numItems; c++) {
+            var mp = "";
+            try { mp = clips[c].projectItem.getMediaPath(); } catch (e) { mp = ""; }
+            if (mp && hl_normPath(mp) === wanted) {
+                out.push({ clip: clips[c], track: t, ticks: clips[c].start.ticks, seconds: clips[c].start.seconds });
+            }
+        }
+    }
+    return out;
+}
+
+// O remove() devolve códigos diferentes conforme a versão; confere se o clipe saiu mesmo.
+function hl_spotStillThere(seq, wanted, s) {
+    var now = hl_placeholderClips(seq, wanted);
+    for (var i = 0; i < now.length; i++) {
+        if (now[i].track === s.track && String(now[i].ticks) === String(s.ticks)) return true;
+    }
+    return false;
+}
+
+// Tira do projeto as cópias da imagem provisória que não estão em nenhuma sequência.
+// As bins onde o Premiere as colocou ficam (podem ser bins do usuário).
+function hl_removePlaceholderItems(copies) {
+    for (var i = 0; i < copies.length; i++) {
+        if (hl_inSomeSequence(copies[i].item) === false) hl_removeItem(copies[i].item, copies[i].chain[copies[i].chain.length - 1]);
+    }
 }
 
 // ---------- bins ----------

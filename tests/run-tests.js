@@ -686,6 +686,87 @@ test("host: sem conseguir conferir as sequências, não remove nada", async () =
     assert.strictEqual(copiesOf(root, v.file).length, 2);
 });
 
+// Arrastar MOGRT (1.3.4): imagem provisória trocada pelo MOGRT depois de soltar.
+test("arrastar MOGRT: imagem provisória com o nome do MOGRT, fora do cache de previews", () => {
+    const appData = tmpDir("cfg");
+    const L = loadLibrary(appData);
+    const mogrt = path.join(tmpDir("midia"), "Título Ação 🎬.mogrt");
+    const a = L.dragPlaceholder(mogrt);
+    assert.strictEqual(path.basename(a), "Título Ação 🎬.png");
+    assert.ok(a.startsWith(path.join(appData, "Helmet Library", "arrastar")), a);
+    assert.ok(!L.isInside(a, L.systemCacheDir()), "fora do cache que o Limpar previews apaga");
+    assert.strictEqual(fs.readFileSync(a).slice(1, 4).toString(), "PNG");
+    assert.strictEqual(L.dragPlaceholder(mogrt), a, "mesmo caminho a cada arrasto");
+    assert.notStrictEqual(L.dragPlaceholder(path.join(tmpDir("midia2"), "Título Ação 🎬.mogrt")), a, "MOGRTs de mesmo nome não se misturam");
+});
+
+function dropPlaceholder(host, file, track, seconds) {
+    const item = host.app.project.rootItem.add(new mock.ClipItem(path.resolve(file), 5));   // o Premiere importa ao soltar
+    if (track !== undefined) host.app.project.activeSequence.videoTracks[track].overwriteClip(item, seconds);
+    return item;
+}
+
+test("arrastar MOGRT: a imagem solta na timeline vira o MOGRT no mesmo tempo e trilha", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const dir = tmpDir("midia");
+    const mogrt = path.join(dir, "Título.mogrt"), ph = path.join(dir, "Título.png");
+    touch(mogrt); touch(ph);
+    const seq = host.app.project.activeSequence;
+
+    // Premiere ainda não colocou na timeline: espera a próxima conferência, sem mexer em nada
+    const item = dropPlaceholder(host, ph);
+    eq(await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", false]), { swapped: 0 });
+    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 1);
+
+    seq.videoTracks[1].overwriteClip(item, 4);
+    const r = await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", false]);
+    eq(r, { swapped: 1, name: "Título", track: "V2" });
+    eq(seq.mgts.map((m) => [m.v, Number(m.ticks) / mock.time(1).ticks]), [[1, 4]]);
+    assert.strictEqual(seq.videoTracks[1].clips.filter((c) => c.item.file === path.resolve(ph)).length, 0, "imagem sai da timeline");
+    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 0, "imagem sai do projeto");
+    assert.ok(!host.app.project.rootItem.children.some((x) => /removendo/.test(x.name)));
+});
+
+test("arrastar MOGRT: solto no Project vira 'só no projeto'; cancelado não faz nada", async () => {
+    const dir = tmpDir("midia");
+    const mogrt = path.join(dir, "Card.mogrt"), ph = path.join(dir, "Card.png");
+    touch(mogrt); touch(ph);
+
+    // cancelado: nenhuma imagem em lugar nenhum
+    let host = loadHost({ mogrtInProject: true });
+    let bridge = loadBridge(host);
+    eq(await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", true]), { swapped: 0 });
+    assert.strictEqual(host.app.project.imports.length, 0);
+
+    // solto no Project: só fica no projeto até a última conferência
+    dropPlaceholder(host, ph);
+    eq(await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "Sub", false]), { swapped: 0 });
+    const r = await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "Sub", true]);
+    assert.strictEqual(r.where, "project");
+    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 0, "imagem sai do projeto");
+    assert.strictEqual(host.app.project.imports[host.app.project.imports.length - 1], path.resolve(mogrt));
+
+    // versão que não importa MOGRT no projeto: mensagem clara (a imagem já saiu)
+    host = loadHost();
+    bridge = loadBridge(host);
+    dropPlaceholder(host, ph);
+    await assert.rejects(bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", true]), /só aceita MOGRT direto na timeline/);
+    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 0);
+});
+
+test("arrastar MOGRT: imagem que o Premiere não deixa tirar da timeline dá erro e não duplica", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const dir = tmpDir("midia");
+    const mogrt = path.join(dir, "X.mogrt"), ph = path.join(dir, "X.png");
+    touch(mogrt); touch(ph);
+    dropPlaceholder(host, ph, 0, 2);
+    host.app.project.activeSequence.videoTracks[0].clips[0].remove = () => { throw new Error("travado"); };
+    await assert.rejects(bridge.call("hl_swapPlaceholder", [ph, mogrt, "", "", false]), /não deixou trocar/);
+    assert.strictEqual(host.app.project.activeSequence.mgts.length, 0);
+});
+
 test("host: timeline na primeira trilha livre; cria trilha quando todas estão ocupadas", async () => {
     const seq = new mock.Sequence(1, 1);
     const host = loadHost({ sequence: seq });
