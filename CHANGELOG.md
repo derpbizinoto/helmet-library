@@ -1,5 +1,11 @@
 # Changelog — Helmet Library
 
+## 1.3.2 — ajustes do arrastar
+
+- Só **vídeos** são importados ao começar a arrastar (áudio e imagem já entravam certo). Assim o painel Project não abre à toa.
+- Depois de importar o vídeo, o painel **Helmet Library volta para a frente** (o Premiere trazia o Project).
+- Vídeo solto no **painel Project** não fica mais duplicado: alguns segundos depois, a cópia que a extensão importou é retirada, junto com as bins que ficaram vazias. Ela só sai se foi criada por esse arrasto, se existe a outra cópia e se não está em nenhuma sequência; na dúvida, nada é apagado.
+
 ## 1.3.1 — correções dos testes no Premiere
 
 - **Atalho de pasta para fora da biblioteca** (ex.: uma junção para `C:\Windows`) voltou a ficar escondido. No Premiere, o sistema nem sempre avisa que a pasta é um atalho; agora toda pasta tem o lugar real conferido.

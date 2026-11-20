@@ -4,7 +4,7 @@ Extensão CEP para o Adobe Premiere Pro que transforma pastas do computador em b
 
 Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (Violet Terminal com degradês sutis), Geo em caixa alta no nome e Roboto no resto.
 
-Versão atual: **1.3.1** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
+Versão atual: **1.3.2** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
 
 ## Instalação
 
@@ -36,7 +36,7 @@ Clique em **Adicionar pasta** (embaixo, na barra da esquerda) e escolha uma past
 - Clique numa pasta da árvore para ver os arquivos dela. Os cards de subpasta e o caminho no topo também navegam.
 - **Preview:** clicar num arquivo abre o preview embaixo (áudio e vídeo tocam sozinhos, o que pode ser desligado). Clicar de novo no mesmo arquivo fecha o preview. Vídeos e imagens ganham um preview maior, e a barra de progresso mostra a minutagem exata (passe o mouse para ver o tempo de qualquer ponto, arraste para buscar). O preview só aparece com algum arquivo selecionado: clicar no vazio da grade ou apertar Esc fecha. Ao passar o mouse, só os GIFs animam no card; vídeos e MOGRTs mostram a miniatura parada.
 - **Para usar no projeto:**
-  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**. Ao começar a arrastar, o arquivo já é importado na bin **Helmet Library** em segundo plano (o Premiere só traz imagem e som de um vídeo arrastado quando ele já está no projeto). Por isso, mesmo se você soltar fora do Premiere, o arquivo fica na bin. MOGRT não é pré-importado: para ele, prefira **Adicionar**;
+  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**. Ao começar a arrastar um **vídeo**, ele já é importado na bin **Helmet Library** em segundo plano (o Premiere só traz imagem e som de um vídeo arrastado quando ele já está no projeto); o painel Project pode aparecer por um instante e o Helmet Library volta para a frente. Se você soltar o vídeo no painel Project, a cópia da bin é retirada em alguns segundos para não ficar duplicada (só se ela não estiver em nenhuma sequência). Se desistir do arrasto, o vídeo fica na bin. Áudio e imagem entram arrastando sem isso. MOGRT não entra arrastando: use **Adicionar**;
   - ou **Adicionar** / Enter / duplo clique: coloca na timeline, na posição da agulha, na primeira trilha livre (se não houver, cria uma trilha);
   - ou **Só no projeto** / Shift+Enter: importa sem mexer na timeline.
 - **Favoritos:** a estrela no card (aparece ao passar o mouse) ou o menu de clique direito.
@@ -87,7 +87,7 @@ As pastas são vigiadas: arquivos novos aparecem sozinhos (o botão de atualizar
 
 ## Limitações conhecidas
 
-- **MOGRT só no projeto:** algumas versões do Premiere não importam `.mogrt` direto no painel Project por script. Nesse caso a extensão avisa, e o MOGRT pode ir para a timeline normalmente (botão Adicionar, duplo clique ou arrastando).
+- **MOGRT só no projeto:** algumas versões do Premiere não importam `.mogrt` direto no painel Project por script. Nesse caso a extensão avisa, e o MOGRT pode ir para a timeline normalmente (botão Adicionar ou duplo clique; arrastar MOGRT o Premiere não aceita).
 - **Duração do MOGRT:** o espaço livre na trilha é conferido em 1 s a partir da agulha, porque a duração do template só é conhecida depois de inserido.
 - **Áudio acima de 300 MB:** não ganha forma de onda e toca pelo player simples, sem Pitch e Reverse (decodificar o arquivo inteiro pesaria demais na memória).
 - **Vídeo com trilhas desencontradas:** um vídeo precisa de V e A livres com o mesmo número. Exemplo: numa sequência com só V1/A1, com a agulha parada, adicionar dois áudios (o segundo cria a A2) e depois um vídeo dá "Não há trilha livre na posição da agulha", porque a extensão cria V2/A3 e procura o par V2/A2. Para contornar, mova a agulha ou crie uma trilha de vídeo à mão. Comportamento antigo, mantido de propósito nesta versão (item P1 da `AUDITORIA.md`).
@@ -122,7 +122,7 @@ Add Keys.reg               libera extensões não assinadas (alternativa manual)
 empacotar.ps1              gera o .zip para distribuir
 tests/                     testes automáticos (Node)
 TESTES.md                  roteiro de testes no Premiere
-AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1
+AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1 e 1.3.2
 ```
 
 ## Para quem mexe no código

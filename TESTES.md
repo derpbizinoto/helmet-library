@@ -1,11 +1,23 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.1
+# Roteiro de testes no Premiere — Helmet Library 1.3.2
+
+> **Reteste da 1.3.2.** Instale a 1.3.2 (`instalar.bat`) e confira só o arrastar:
+>
+> - [ ] **R1** Arraste um **vídeo** que ainda não está no projeto para a timeline: entra com imagem e som no primeiro arrasto, e o painel **Helmet Library volta para a frente** sozinho (o Project pode aparecer por um instante). Anote se ele não voltar.
+> - [ ] **R2** Arraste um **áudio** e uma **imagem** para a timeline: entram certo e o painel Project **não** abre (eles não são mais pré-importados).
+> - [ ] **R3** Arraste um vídeo que ainda não está no projeto para o **painel Project**: em até uns 5 segundos fica **uma cópia só** (a que você soltou). A bin Helmet Library não fica vazia sobrando, e não aparece nenhuma bin "Helmet Library - removendo…".
+> - [ ] **R4** Arraste o mesmo vídeo para a timeline e depois para o Project: o clipe da timeline continua lá, sem ficar offline.
+> - [ ] **R5** Arraste vários vídeos selecionados juntos para a timeline: entram todos com imagem e som.
+> - Já sabido: arrastar MOGRT continua não funcionando (use **Adicionar**); arrastar e desistir deixa o vídeo na bin Helmet Library (combinado deixar assim por enquanto).
+>
+> **Resultado do reteste da 1.3.1:** 2.5, 8.2, seção 5, 8.5 e 2.13 passaram. Vídeo arrastado entra com imagem e som já no primeiro arrasto. Problemas que a 1.3.2 corrige: o painel Project abria sozinho ao arrastar, e arrastar para o Project deixava o arquivo duplicado. MOGRT continua sem entrar arrastando.
 
 > **Reteste da 1.3.1.** As marcações abaixo são do teste da 1.3.0. Instale a 1.3.1 (`instalar.bat`) e refaça só estes itens: **2.5, 2.8, 2.11, 3.4, 4.3, seção 5, 8.2, 8.3 e 8.5**. O que mudou:
-> - **2.5** o painel agora pede ao Premiere para receber a tecla Esc;
-> - **2.8, 2.11, 3.4, 4.3** ao começar a arrastar, o arquivo é importado no projeto (bin Helmet Library) em segundo plano, porque o Premiere só trazia imagem e som quando o arquivo já estava no projeto. Se o primeiro arrasto ainda vier só com áudio, anote: pode ser que o Premiere precise de um instante a mais. O MOGRT não é pré-importado (duplicaria na bin), então arrastar MOGRT pode continuar não funcionando — use Adicionar;
-> - **8.2** cada pasta tem o destino real conferido, mesmo quando o Premiere não avisa que é um atalho;
-> - **seção 5 e 8.5** os arquivos de teste já estão prontos em `E:\Teste Helmet` (pasta `Muitos` com 3.000 WAVs e `audio grande 320MB.wav`). Adicione `E:\Teste Helmet` como biblioteca.
-> - **2.13** funciona como planejado: a busca procura na pasta aberta e nas subpastas. Para buscar na biblioteca inteira, clique no **nome da biblioteca** na árvore antes de buscar. Busca em todas as bibliotecas de uma vez ficou anotada como ideia para o futuro.
+>
+> - **2.5** o painel agora pede ao Premiere para receber a tecla Esc; **X**
+> - **2.8, 2.11, 3.4, 4.3** ao começar a arrastar, o arquivo é importado no projeto (bin Helmet Library) em segundo plano, porque o Premiere só trazia imagem e som quando o arquivo já estava no projeto. Se o primeiro arrasto ainda vier só com áudio, anote: pode ser que o Premiere precise de um instante a mais. O MOGRT não é pré-importado (duplicaria na bin), então arrastar MOGRT pode continuar não funcionando — use Adicionar; ***- Teste: quando arrasto o asset, a aba Project abre automaticamente. Teria como continuar na aba da Extensão? Teria também como o arquivo sumir da aba Project caso eu desista de arrastá-lo à timeline?***
+> - **8.2** cada pasta tem o destino real conferido, mesmo quando o Premiere não avisa que é um atalho; **X**
+> - **seção 5 e 8.5** os arquivos de teste já estão prontos em `E:\Teste Helmet` (pasta `Muitos` com 3.000 WAVs e `audio grande 320MB.wav`). Adicione `E:\Teste Helmet` como biblioteca. **X**
+> - **2.13** funciona como planejado: a busca procura na pasta aberta e nas subpastas. Para buscar na biblioteca inteira, clique no **nome da biblioteca** na árvore antes de buscar. Busca em todas as bibliotecas de uma vez ficou anotada como ideia para o futuro. **X**
 
 Os testes automáticos (`node tests/run-tests.js`) cobrem o que dá para testar fora do Premiere. Este roteiro é o que **só dá para conferir no Premiere de verdade**. Referência: Premiere Pro 26.x no Windows.
 
@@ -24,14 +36,14 @@ Marque cada item com `x` quando passar. Se algo falhar, anote o número do item,
      - `🔥 explosão 💥.mp4` (emoji)
      - `   espaços   no   meio.png` (vários espaços)
      - `nome.com.pontos.mp3`
-2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.1.
+2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.2.
 3. Abra o Premiere, crie um projeto de teste e uma sequência.
 
 ## 1. Instalação
 
-- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.1**, sem erro.
+- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.2**, sem erro.
 - [x] 1.2 **Janela › Extensões › Helmet Library** abre o painel, com o visual de sempre.
-- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.1**.
+- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.2**.
 - [x] 1.4 O painel aparece **uma vez só** no menu de extensões (sem cópia duplicada).
 - [x] 1.5 As bibliotecas e favoritos que você já tinha continuam lá.
 
@@ -49,7 +61,7 @@ Marque cada item com `x` quando passar. Se algo falhar, anote o número do item,
 - [x] 2.10 Os arquivos entram na bin **Helmet Library › Teste Helmet › …** (com "Recriar as pastas como bins" ligado).
 - [ ] 2.11 Um `.mogrt` vai para a timeline com Adicionar e arrastando. ***- Teste: arrastar não funciona, apenas adicionar. Presumo que é o mesmo erro dos vídeos.***
 - [x] 2.12 Favoritar pela estrela e pelo clique direito; a pasta **Favoritos** mostra os arquivos.
-- [ ] 2.13 Busca: digite parte de um nome; acha também nas subpastas. O filtro por tipo funciona. ***- Teste: a busca funciona, mas só consigo pesquisar dentro de pastas, pois não consigo tirar a seleção de uma pasta.***
+- [x] 2.13 Busca: digite parte de um nome; acha também nas subpastas. O filtro por tipo funciona. ***- Teste: a busca funciona, mas só consigo pesquisar dentro de pastas, pois não consigo tirar a seleção de uma pasta.***
 - [x] 2.14 Clique direito → **Mostrar no Explorer** abre o Explorer com o arquivo selecionado. Clique direito na pasta → **Abrir no Explorer** abre a pasta.
 - [x] 2.15 Crie um arquivo novo dentro da pasta pelo Explorer: ele aparece sozinho no painel em poucos segundos.
 
@@ -82,12 +94,12 @@ New-Item -ItemType Directory "$pasta\Muitos" -Force | Out-Null
 1..3000 | ForEach-Object { Copy-Item $modelo.FullName "$pasta\Muitos\som $_.wav" }
 ```
 
-- [ ] 5.1 Abrir a pasta `Muitos`: a grade aparece em poucos segundos e o painel **não congela** (dá para rolar e clicar enquanto as miniaturas são geradas).
-- [ ] 5.2 Rolar até o fim: as miniaturas são geradas conforme os cards aparecem.
-- [ ] 5.3 Digitar na busca: a primeira busca pode demorar um pouco; as letras seguintes respondem rápido.
-- [ ] 5.4 O Premiere continua respondendo normalmente enquanto isso.
+- [x] 5.1 Abrir a pasta `Muitos`: a grade aparece em poucos segundos e o painel **não congela** (dá para rolar e clicar enquanto as miniaturas são geradas).
+- [x] 5.2 Rolar até o fim: as miniaturas são geradas conforme os cards aparecem.
+- [x] 5.3 Digitar na busca: a primeira busca pode demorar um pouco; as letras seguintes respondem rápido.
+- [x] 5.4 O Premiere continua respondendo normalmente enquanto isso.
 - [ ] 5.5 (Opcional, demora) Com mais de 20.000 arquivos na biblioteca, ligar **Subpastas juntas** mostra o aviso "Mostrando só os primeiros 20.000 arquivos…".
-- [ ] 5.6 Configurações → **Limpar previews**: pergunta antes, mostra quantos arquivos e o tamanho; ao confirmar, apaga e as miniaturas são refeitas ao reabrir a pasta. Seus arquivos `.wav` continuam todos lá. ***- Teste: não consegui fazer nenhum porque o comando do PowerShell não funciona por algum motivo.***
+- [x] 5.6 Configurações → **Limpar previews**: pergunta antes, mostra quantos arquivos e o tamanho; ao confirmar, apaga e as miniaturas são refeitas ao reabrir a pasta. Seus arquivos `.wav` continuam todos lá. ***- Teste: não consegui fazer nenhum porque o comando do PowerShell não funciona por algum motivo.***
 
 Ao terminar, apague a pasta `Muitos` pelo Explorer.
 
@@ -113,11 +125,11 @@ Ao terminar, apague a pasta `Muitos` pelo Explorer.
 ## 8. Casos de segurança e limites
 
 - [x] 8.1 **Atalho para dentro:** no Prompt de Comando, `mklink /J "C:\Teste Helmet\Atalho Sons" "C:\Teste Helmet\Sons"`. A pasta `Atalho Sons` aparece e abre.
-- [ ] 8.2 **Atalho para fora:** `mklink /J "C:\Teste Helmet\Atalho Windows" "C:\Windows"`. Essa pasta **não aparece** no painel. ***- Teste: a pasta aparece.***
+- [x] 8.2 **Atalho para fora:** `mklink /J "C:\Teste Helmet\Atalho Windows" "C:\Windows"`. Essa pasta **não aparece** no painel. ***- Teste: a pasta aparece.***
 - [x] 8.3 **Atalho para a mãe:** `mklink /J "C:\Teste Helmet\Sons\Volta" "C:\Teste Helmet"`. Ligar **Subpastas juntas** e buscar não trava nem repete arquivos sem fim.
   (Apague os atalhos depois pelo Explorer: apagar o atalho não apaga a pasta de verdade.)
 - [x] 8.4 **Pasta só de leitura:** clique direito na pasta de teste → Propriedades → Segurança e negue "Gravar" para o seu usuário (ou use um pendrive travado). Abrir a pasta mostra o aviso "Sem permissão para gravar previews nesta pasta. Use "Cache do sistema" nas configurações." Mude para **Cache do sistema**: as miniaturas aparecem. (Desfaça a permissão depois.)
-- [ ] 8.5 **Áudio grande:** (use `E:\Teste Helmet\audio grande 320MB.wav`, um tom contínuo de uns 32 minutos) um WAV com mais de 300 MB toca pelo player simples (Pitch/Reverse não fazem efeito) e o card não tem forma de onda. O painel não trava ao clicar nele. ***- Teste: não tenho um wav com esse tamanho por enquanto.***
+- [x] 8.5 **Áudio grande:** (use `E:\Teste Helmet\audio grande 320MB.wav`, um tom contínuo de uns 32 minutos) um WAV com mais de 300 MB toca pelo player simples (Pitch/Reverse não fazem efeito) e o card não tem forma de onda. O painel não trava ao clicar nele. ***- Teste: não tenho um wav com esse tamanho por enquanto.***
 - [x] 8.6 **MOGRT danificado:** copie um `.mogrt`, abra a cópia no Bloco de Notas, apague um pedaço e salve. O card aparece com aviso "Sem pré-visualização" no ícone, sem travar o painel.
 - [x] 8.7 **Vídeo com codec sem preview** (ProRes, por exemplo): aparece com ícone e aviso, e entra no Premiere normalmente.
 

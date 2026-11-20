@@ -339,3 +339,16 @@ Resultado do `TESTES.md` na 1.3.0: quase tudo passou. O que falhou:
 | 7.5, 7.6 | Não testados | Sem HD externo / pasta de rede | Pendente |
 
 **Ideia para o futuro (recurso novo, não feito):** busca em todas as bibliotecas de uma vez.
+
+### Reteste da 1.3.1 e ajustes da 1.3.2
+
+Passaram 2.5, 8.2, seção 5, 8.5 e 2.13; o vídeo arrastado entra com imagem e som no primeiro arrasto.
+Dois efeitos colaterais da pré-importação, corrigidos na 1.3.2:
+
+| Problema | Causa | 1.3.2 |
+|---|---|---|
+| O painel Project abria sozinho ao arrastar | Todo import faz o Premiere trazer o Project para a frente | Só vídeo é pré-importado; depois o painel pede para voltar à frente (`requestOpenExtension`) |
+| Arrastar para o Project deixava o arquivo duplicado | Ao soltar no Project o Premiere importa uma cópia própria | `hl_dropDuplicate`: 1,5 s e 5 s depois de soltar, remove a cópia pré-importada se ela foi criada por esse arrasto, se há outra cópia e se não está em nenhuma sequência (o script do Premiere não tem "apagar item": move para uma bin temporária e apaga a bin) |
+
+Pedido do usuário deixado para depois: tirar o vídeo do projeto quando o arrasto é cancelado.
+MOGRT continua sem entrar arrastando (o Premiere não aceita); o caminho é o botão Adicionar.
