@@ -393,3 +393,26 @@ trilha viram itens em fila com a duração real. Vídeo solto no Project vai par
 solto no Project não é importado (só aviso na barra de baixo).
 Ponto em aberto: a troca do vídeo usa `importFiles`, como o botão Adicionar. Se o Premiere trouxer o
 Project para a frente nesse import, isso acontece depois de soltar (não mais durante o arrasto).
+
+### 1.3.6 — vídeo arrastado igual ao Animation Composer
+
+Reteste da 1.3.5: o vídeo entrou certo, mas o Project ainda vinha para a frente depois de soltar
+(confirmado: é o `importFiles` da troca). O usuário pediu para copiar o método do Animation Composer.
+
+Análise do Composer instalado (`com.misterhorse.PremiereComposer`, painel CEP + `jsx/mh-browser-ppro.jsx`):
+- Ao selecionar um item, o painel pede ao ExtendScript os "arquivos de pré-visualização" do item
+  (`Editor.getFootagePreviewFiles`). Para vídeo comum, a resposta é o **próprio caminho do arquivo**.
+  Arquivos gerados (com duração e número de trilhas, por um plugin nativo) só são usados para som,
+  MOGRT, sequência e sequência de imagens, que depois são trocados pelo item real ao soltar.
+- No `dragstart`, o painel só faz `setData("com.adobe.cep.dnd.file.N", caminho)` para cada arquivo.
+  Não mexe em `effectAllowed` e não manda `text/uri-list` nem `text/plain`.
+- No `dragend`, para vídeo comum não faz nada (não há troca nem importação).
+
+A 1.3.6 faz o mesmo para qualquer arrasto que contenha vídeo: só `com.adobe.cep.dnd.file.N`, com o
+caminho real (o MOGRT do mesmo arrasto continua indo como imagem provisória). Saíram a imagem
+provisória de vídeo, `hl_placeAt` (virou `hl_placeMogrt`, só MOGRT) e a importação de vídeo solto no
+Project. Arrastos sem vídeo (áudio, imagem, MOGRT) ficam como estavam.
+Histórico a conferir no reteste: segundo um comentário antigo do código, as versões 1.1 a 1.2.1 já
+mandavam só o formato do CEP e o vídeo falhava ou entrava só com áudio. Não há código dessas versões
+no repositório para comparar; se o C1 falhar do mesmo jeito, a diferença está fora do arrasto (por
+exemplo, nos plugins nativos que o Composer instala).

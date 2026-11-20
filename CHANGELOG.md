@@ -1,5 +1,11 @@
 # Changelog — Helmet Library
 
+## 1.3.6 — vídeo arrastado igual ao Animation Composer
+
+- **Vídeo arrastado** agora segue exatamente o método do Animation Composer: o arrasto leva só o caminho do arquivo verdadeiro, no formato próprio do CEP. Sem importar antes, sem imagem provisória, sem troca depois de soltar e sem os formatos extras (lista de URLs e texto). O próprio Premiere importa e coloca o vídeo ao soltar.
+- Sai todo o sistema de vídeo da 1.3.1 a 1.3.5 (pré-importação, imagem provisória de vídeo, troca e importação no Project).
+- Áudio, imagem e MOGRT não mudam.
+
 ## 1.3.5 — vídeo arrastado com imagem provisória
 
 - **Vídeo arrastado** agora usa o mesmo esquema do MOGRT: vai como uma imagem cinza com o nome dele, trocada pelo vídeo (imagem e som) no mesmo lugar depois de soltar.

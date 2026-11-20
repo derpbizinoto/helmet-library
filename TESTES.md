@@ -1,15 +1,25 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.5
+# Roteiro de testes no Premiere — Helmet Library 1.3.6
 
-> **Reteste da 1.3.5.** Instale a 1.3.5 (`instalar.bat`). O vídeo agora usa o mesmo esquema do MOGRT (imagem provisória) e não é mais importado ao começar a arrastar. Confira só isto:
+> **Reteste da 1.3.6.** Instale a 1.3.6 (`instalar.bat`). O vídeo agora é arrastado exatamente como no Animation Composer (só o caminho do arquivo; o Premiere importa ao soltar). Confira só isto:
 >
-> - [ ] **V1** Arraste um **vídeo** que ainda não está no projeto para a timeline e solte. Por um instante aparece a imagem cinza; em até uns 2 segundos ela vira o vídeo, **com imagem e som**, no mesmo lugar. **O painel Project não vem para a frente** (nem ao começar a arrastar, nem depois de soltar). Anote se ele ainda vier depois de soltar.
-> - [ ] **V2** Depois do V1, o vídeo está na bin **Helmet Library** e no painel Project não sobra nenhuma imagem cinza (`.png` com o nome do vídeo).
-> - [ ] **V3** Arraste **três vídeos** selecionados juntos: entram em fila, um depois do outro, cada um com a duração inteira, sem sobrepor.
-> - [ ] **V4** Arraste um vídeo para um lugar da timeline onde a trilha de áudio de baixo já tem um som: o som que já estava continua intacto; o vídeo vai para outra trilha livre (a barra de baixo diz qual).
-> - [ ] **V5** Arraste um vídeo para o **painel Project**: uns 5 segundos depois a imagem cinza some e o vídeo aparece na bin Helmet Library (uma cópia só).
-> - [ ] **V6** Arraste um **MOGRT** para o **painel Project**: o aviso do Premiere **não** aparece; a imagem cinza some e a barra de baixo diz para arrastar para a timeline.
-> - [ ] **V7** Arraste juntos um vídeo e um MOGRT para a timeline: os dois entram em fila.
-> - [ ] **V8** Áudio e imagem continuam entrando arrastando, como antes.
+> - [ ] **C1** Arraste um **vídeo** que ainda não está no projeto para a timeline: entra **com imagem e som** já no primeiro arrasto, e **o painel Project não vem para a frente** (nem durante, nem depois). Se entrar só o áudio, anote.
+> - [ ] **C2** Arraste o mesmo vídeo de novo: entra de novo, normal.
+> - [ ] **C3** Arraste **três vídeos** selecionados juntos para a timeline: entram os três, com imagem e som.
+> - [ ] **C4** Arraste um vídeo para o **painel Project**: entra no projeto, uma cópia só.
+> - [ ] **C5** Arraste juntos um vídeo e um áudio: os dois entram.
+> - [ ] **C6** MOGRT, áudio e imagem continuam como antes (M1 e V8).
+> - Diferença esperada: o vídeo arrastado entra onde o Premiere coloca (como no Composer), não na bin Helmet Library. Com **Adicionar** continua indo para a bin.
+
+> **Reteste da 1.3.5.** Resultado: V1 a V5, V7 e V8 passaram, mas o painel Project ainda vinha para a frente depois de soltar um vídeo. V6: ao soltar MOGRT no Project, ele some (não é importado).
+>
+> - [x] **V1** Arraste um **vídeo** que ainda não está no projeto para a timeline e solte. Por um instante aparece a imagem cinza; em até uns 2 segundos ela vira o vídeo, **com imagem e som**, no mesmo lugar. **O painel Project não vem para a frente** (nem ao começar a arrastar, nem depois de soltar). Anote se ele ainda vier depois de soltar.
+> - [x] **V2** Depois do V1, o vídeo está na bin **Helmet Library** e no painel Project não sobra nenhuma imagem cinza (`.png` com o nome do vídeo).
+> - [x] **V3** Arraste **três vídeos** selecionados juntos: entram em fila, um depois do outro, cada um com a duração inteira, sem sobrepor.
+> - [x] **V4** Arraste um vídeo para um lugar da timeline onde a trilha de áudio de baixo já tem um som: o som que já estava continua intacto; o vídeo vai para outra trilha livre (a barra de baixo diz qual).
+> - [x] **V5** Arraste um vídeo para o **painel Project**: uns 5 segundos depois a imagem cinza some e o vídeo aparece na bin Helmet Library (uma cópia só).
+> - [ ] **V6** Arraste um **MOGRT** para o **painel Project**: o aviso do Premiere **não** aparece; a imagem cinza some e a barra de baixo diz para arrastar para a timeline. ***- O MOGRT some no Project.***
+> - [x] **V7** Arraste juntos um vídeo e um MOGRT para a timeline: os dois entram em fila.
+> - [x] **V8** Áudio e imagem continuam entrando arrastando, como antes.
 
 > **Reteste da 1.3.4.** Resultado: M1, M2, M3, M5 e M6 passaram. M4: ao soltar MOGRT no Project, o Premiere mostrou o aviso "Motion Graphics Templates cannot be imported into the Project panel". O painel Project continuou vindo para a frente ao arrastar vídeo.
 >
@@ -67,14 +77,14 @@ Marque cada item com `x` quando passar. Se algo falhar, anote o número do item,
      - `🔥 explosão 💥.mp4` (emoji)
      - `   espaços   no   meio.png` (vários espaços)
      - `nome.com.pontos.mp3`
-2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.5.
+2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.6.
 3. Abra o Premiere, crie um projeto de teste e uma sequência.
 
 ## 1. Instalação
 
-- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.5**, sem erro.
+- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.6**, sem erro.
 - [x] 1.2 **Janela › Extensões › Helmet Library** abre o painel, com o visual de sempre.
-- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.5**.
+- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.6**.
 - [x] 1.4 O painel aparece **uma vez só** no menu de extensões (sem cópia duplicada).
 - [x] 1.5 As bibliotecas e favoritos que você já tinha continuam lá.
 
