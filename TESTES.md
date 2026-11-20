@@ -2,11 +2,11 @@
 
 > **Reteste da 1.3.8.** Instale a 1.3.8 (`instalar.bat`). Confira só isto:
 >
-> - [ ] **E1** (era o D6) Feche todas as sequências e arraste um MOGRT para a **timeline vazia**: não fica nenhuma sequência nova nem imagem cinza no projeto, e a barra de baixo diz "Arraste para uma sequência já aberta na timeline". Aperte Ctrl+Shift+Z: a sequência cinza não volta.
-> - [ ] **E2** Crie uma sequência nova **vazia** sua e arraste um MOGRT para ela: o MOGRT entra normalmente (a sua sequência não some).
-> - [ ] **E3** (era o D9) Selecione um **vídeo e um MOGRT** e arraste os dois: durante o arrasto a barra de baixo diz "Só os MOGRTs vão neste arrasto…"; só o MOGRT entra, e a barra de baixo avisa que o outro arquivo não foi junto. Depois aperte Ctrl+Z algumas vezes: a imagem cinza não volta.
-> - [ ] **E4** Arraste o vídeo sozinho logo depois: entra normal (como no C1).
-> - [ ] **E5** D1 continua: um MOGRT sozinho entra e fica selecionado.
+> - [x] **E1** (era o D6) Feche todas as sequências e arraste um MOGRT para a **timeline vazia**: não fica nenhuma sequência nova nem imagem cinza no projeto, e a barra de baixo diz "Arraste para uma sequência já aberta na timeline". Aperte Ctrl+Shift+Z: a sequência cinza não volta.
+> - [x] **E2** Crie uma sequência nova **vazia** sua e arraste um MOGRT para ela: o MOGRT entra normalmente (a sua sequência não some).
+> - [x] **E3** (era o D9) Selecione um **vídeo e um MOGRT** e arraste os dois: durante o arrasto a barra de baixo diz "Só os MOGRTs vão neste arrasto…"; só o MOGRT entra, e a barra de baixo avisa que o outro arquivo não foi junto. Depois aperte Ctrl+Z algumas vezes: a imagem cinza não volta.
+> - [x] **E4** Arraste o vídeo sozinho logo depois: entra normal (como no C1).
+> - [x] **E5** D1 continua: um MOGRT sozinho entra e fica selecionado.
 
 > **Reteste da 1.3.7.** Resultado: D1 a D5, D7, D8 e D10 passaram. D6 e D9 falharam (corrigidos na 1.3.8). Instale a 1.3.7 (`instalar.bat`). O arrastar de MOGRT agora segue os passos do Animation Composer. Confira só isto:
 >
