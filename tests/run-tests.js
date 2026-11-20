@@ -36,6 +36,21 @@ function tmpDir(name) {
     return d;
 }
 
+// Armazenamento falso do painel (localStorage), onde fica o idioma escolhido. Os testes
+// conferem as mensagens em português, então o idioma começa como "pt" (o padrão real é
+// inglês); lang null = nada salvo.
+function fakeStorage(lang) {
+    const data = lang === null ? {} : { "helmetlibrary.lang": lang || "pt" };
+    return {
+        getItem: (k) => (k in data ? data[k] : null),
+        setItem: (k, v) => { data[k] = String(v); },
+        removeItem: (k) => { delete data[k]; }
+    };
+}
+
+// config.js e i18n.js vêm sempre antes, como no index.html
+const BASE_SCRIPTS = ["client/js/config.js", "client/js/i18n.js"];
+
 // Carrega os scripts "Node" do painel num contexto parecido com o do CEP
 // (--mixed-context: require/process/Buffer visíveis na página).
 // customRequire: troca módulos do Node (ex.: um fs que se comporta como o do Premiere)
@@ -44,12 +59,11 @@ function loadPanel(files, env, customRequire) {
     fakeProcess.env = Object.assign({}, process.env, env || {});
     const ctx = {
         require: customRequire || require, process: fakeProcess, Buffer, console: { log() {}, warn() {}, error() {} },
-        setTimeout, clearTimeout, Promise
+        setTimeout, clearTimeout, Promise, localStorage: fakeStorage()
     };
     ctx.window = ctx;
     vm.createContext(ctx);
-    // config.js (constantes e registro) vem sempre antes, como no index.html
-    ["client/js/config.js"].concat(files).forEach((f) => vm.runInContext(read(f), ctx, { filename: f }));
+    BASE_SCRIPTS.concat(files).forEach((f) => vm.runInContext(read(f), ctx, { filename: f }));
     return ctx;
 }
 
@@ -467,6 +481,7 @@ test("interface: todos os scripts estão no index.html, na ordem certa", () => {
     const files = Object.keys(panelSources()).concat("CSInterface.js").sort();
     eq(order.slice().sort(), files, "script faltando ou sobrando no index.html");
     assert.strictEqual(order[0], "config.js", "config.js tem que vir primeiro");
+    assert.strictEqual(order[1], "i18n.js", "i18n.js logo depois (todos os outros usam tr)");
     const pos = (n) => order.indexOf(n);
     ["library.js", "previews.js", "player.js", "bridge.js"].forEach((n) => assert.ok(pos(n) < pos("app.js"), n + " antes do app.js"));
     UI_FILES.forEach((n) => assert.ok(pos(n) >= pos("app.js"), n + " depois do app.js"));
@@ -517,9 +532,9 @@ function loadHost(opts) {
 }
 
 // Painel com a ponte; o evalScript roda o texto no host simulado.
-function loadBridge(hostCtx) {
+function loadBridge(hostCtx, lang) {
     const ctx = {
-        console: { log() {}, warn() {}, error() {} }, setTimeout, Promise, JSON, RegExp, String,
+        console: { log() {}, warn() {}, error() {} }, setTimeout, Promise, JSON, RegExp, String, localStorage: fakeStorage(lang),
         __adobe_cep__: {},
         SystemPath: { EXTENSION: "extension" },
         CSInterface: function () {
@@ -534,8 +549,9 @@ function loadBridge(hostCtx) {
     ctx.window = ctx;
     ctx.console = { log() {}, warn() {}, error() {} };
     vm.createContext(ctx);
-    vm.runInContext(read("client/js/config.js"), ctx, { filename: "config.js" });
+    BASE_SCRIPTS.forEach((f) => vm.runInContext(read(f), ctx, { filename: f }));
     vm.runInContext(read("client/js/bridge.js") + "\nthis.HLBridge = HLBridge;", ctx, { filename: "bridge.js" });
+    ctx.HLBridge._i18n = ctx.HLI18n;
     return ctx.HLBridge;
 }
 
@@ -940,6 +956,115 @@ test("host: MOGRT vai para a timeline com importMGT; no projeto avisa se não de
     assert.strictEqual(t.track, "V1");
     assert.strictEqual(host.app.project.activeSequence.mgts[0].file, path.resolve(file));
     await assert.rejects(bridge.call("hl_add", [file, "mogrt", false, "", ""]), /só aceita MOGRT direto na timeline/);
+});
+
+// ---------------------------------------------------------------------------
+// Idioma (inglês padrão, português opcional)
+// ---------------------------------------------------------------------------
+
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const marks = (s) => (s.match(/\{\d\}/g) || []).sort().join();
+const noComments = (code) => code.replace(/^\s*\/\/.*$/gm, "");
+
+function loadI18n(lang) {
+    const ctx = { localStorage: fakeStorage(lang) };
+    vm.createContext(ctx);
+    vm.runInContext(read("client/js/i18n.js"), ctx, { filename: "i18n.js" });
+    return ctx.HLI18n;
+}
+
+// Frases do painel: tr("…"), N("…") e trParts("…").
+function panelKeys() {
+    const keys = new Set();
+    Object.entries(panelSources()).forEach(([n, src]) => {
+        if (n === "i18n.js") return;
+        for (const m of noComments(src).matchAll(/\b(?:tr|N|trParts)\(\s*"((?:[^"\\]|\\.)*)"/g)) keys.add(JSON.parse('"' + m[1] + '"'));
+    });
+    return keys;
+}
+
+// Mensagens do host/index.jsx: hl_userError("…") e o começo das mensagens de erro inesperado.
+function hostKeys() {
+    const code = noComments(read("host/index.jsx"));
+    const keys = new Set([...code.matchAll(/hl_userError\(\s*"((?:[^"\\]|\\.)*)"\)/g)].map((m) => JSON.parse('"' + m[1] + '"')));
+    for (const m of code.matchAll(/\}, "([^"]+: )"\);/g)) keys.add(m[1] + "{0}");
+    keys.add("Erro no Premiere: {0}");   // padrão do hl_run
+    return keys;
+}
+
+// Textos fixos do index.html (conteúdo das tags e title/placeholder/aria-label).
+function htmlTexts() {
+    const html = read("client/index.html").replace(/<script[\s\S]*?<\/script>/g, "").replace(/<!--[\s\S]*?-->/g, "");
+    const body = html.slice(html.indexOf("<body"));
+    const out = new Set();
+    for (const m of body.matchAll(/>([^<>]+)</g)) { const s = m[1].trim(); if (s) out.add(s); }
+    for (const m of body.matchAll(/\b(?:title|placeholder|aria-label)="([^"]*)"/g)) if (m[1].trim()) out.add(m[1]);
+    return out;
+}
+
+// Iguais nos dois idiomas (nomes, termos do Premiere, números).
+const SAME_IN_BOTH = /^(Helmet Library|MOGRTs|Pitch|Reverse|OK|—|English|Português \(Brasil\)|Language \/ Idioma|[\d:]+)$/;
+
+test("idioma: toda frase do painel, do index.html e do host tem tradução em inglês", () => {
+    const I = loadI18n();
+    const panel = panelKeys(), html = htmlTexts(), host = hostKeys();
+    assert.ok(panel.size > 100 && host.size >= 10, "achou as frases");
+    eq([...panel].filter((k) => !has(I.EN, k)), [], "frases do código sem tradução");
+    eq([...html].filter((k) => !has(I.EN, k) && !SAME_IN_BOTH.test(k)), [], "textos do index.html sem tradução");
+    eq([...host].filter((k) => !has(I.EN, k)), [], "mensagens do host sem tradução");
+    eq(Object.keys(I.EN).filter((k) => marks(k) !== marks(I.EN[k])), [], "marcadores {0} diferentes");
+    eq(Object.keys(I.EN).filter((k) => !panel.has(k) && !html.has(k) && !host.has(k)), [], "tradução que ninguém usa");
+});
+
+test("idioma: inglês é o padrão e a troca é lembrada", () => {
+    const store = fakeStorage(null);
+    const ctx = { localStorage: store };
+    vm.createContext(ctx);
+    vm.runInContext(read("client/js/i18n.js"), ctx);
+    const I = ctx.HLI18n;
+    eq(I.lang(), "en");
+    eq(I.t("{0} arquivos", 3), "3 files");
+    eq(I.t("frase fora do dicionário {0}", 1), "frase fora do dicionário 1");
+    eq(I.N("compressão não suportada ({0})", 9), "compressão não suportada (9)", "N fica em português");
+    let changed = null;
+    I.onChange((l) => { changed = l; });
+    I.setLang("pt");
+    eq([I.lang(), changed, store.getItem("helmetlibrary.lang")], ["pt", "pt", "pt"]);
+    eq(I.t("{0} arquivos", 3), "3 arquivos");
+    I.setLang("xx");
+    eq(I.lang(), "pt", "idioma desconhecido é ignorado");
+    eq(loadI18n("pt").lang(), "pt", "a escolha salva vale ao abrir de novo");
+});
+
+test("idioma: trMsg traduz mensagens prontas (host e cache de previews), inclusive as compostas", () => {
+    const I = loadI18n("en");
+    eq(I.message("Nenhum projeto aberto."), "No project open.");
+    eq(I.message("Erro ao adicionar: Nenhum projeto aberto."), "Error adding: No project open.");
+    eq(I.message("Erro ao adicionar: Error: falha interna"), "Error adding: Error: falha interna", "erro desconhecido passa igual");
+    eq(I.message("MOGRT sem preview (arquivo grande demais ou danificado: entrada corrompida)"), "MOGRT without preview (file too large or damaged: corrupted entry)");
+    eq(I.message("EACCES: permission denied, open 'x'"), "EACCES: permission denied, open 'x'");
+    eq(I.message(undefined), "");
+    eq(loadI18n("pt").message("Erro ao adicionar: Nenhum projeto aberto."), "Erro ao adicionar: Nenhum projeto aberto.");
+    eq(I.parts("Clique em {0} e escolha uma pasta do computador com seus vídeos, sons, imagens e MOGRTs.", "[B]"),
+        ["Click ", "[B]", " and choose a folder on your computer with your videos, sounds, images and MOGRTs."]);
+});
+
+test("idioma: erro do host chega ao painel no idioma escolhido", async () => {
+    const en = loadBridge(loadHost(), "en");
+    await assert.rejects(en.call("hl_add", ["C:\\não\\existe.wav", "audio", true, "", ""]), /^Error: File not found/);
+    const pt = loadBridge(loadHost(), "pt");
+    await assert.rejects(pt.call("hl_add", ["C:\\não\\existe.wav", "audio", true, "", ""]), /Arquivo não encontrado/);
+    pt._i18n.setLang("en");
+    await assert.rejects(pt.call("hl_add", ["C:\\não\\existe.wav", "audio", true, "", ""]), /File not found/, "troca vale na hora");
+});
+
+test("idioma: seletor nas Configurações, index.html em inglês por padrão", () => {
+    const html = read("client/index.html");
+    assert.ok(/<html lang="en">/.test(html));
+    const modal = html.slice(html.indexOf('id="settingsModal"'), html.indexOf('id="askModal"'));
+    assert.ok(/<select id="langSelect"[\s\S]*value="en"[\s\S]*value="pt"/.test(modal), "seletor de idioma dentro das Configurações");
+    assert.ok(/HLI18n\.setLang\(els\.langSelect\.value\)/.test(read("client/js/settings.js")));
+    assert.ok(/HLI18n\.onChange\(/.test(read("client/js/main.js")), "a tela é refeita ao trocar");
 });
 
 // ---------------------------------------------------------------------------

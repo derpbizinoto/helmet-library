@@ -29,12 +29,16 @@
     function addFiles(files, toTimeline) {
         files = files.filter(allowedFile);
         if (!files.length || adding) return;
-        if (!inCEP) { setStatus("Modo de demonstração: no Premiere, " + files.length + " arquivo(s) iriam para " + (toTimeline ? "a timeline." : "o projeto."), "warning"); return; }
+        if (!inCEP) {
+            setStatus(toTimeline ? tr("Modo de demonstração: no Premiere, {0} arquivo(s) iriam para a timeline.", files.length)
+                : tr("Modo de demonstração: no Premiere, {0} arquivo(s) iriam para o projeto.", files.length), "warning");
+            return;
+        }
         adding = true;
         els.btnAdd.disabled = els.btnImport.disabled = true;
         var okCount = 0, lastMsg = "", errors = [], noSeq = false;
         var i = 0;
-        setStatus((toTimeline ? "Adicionando na timeline" : "Importando") + "…", "", true);
+        setStatus(toTimeline ? tr("Adicionando na timeline…") : tr("Importando…"), "", true);
         function next() {
             if (i >= files.length) return Promise.resolve();
             var f = files[i++];
@@ -43,7 +47,7 @@
             return HLBridge.call("hl_add", [f.path, kind, !!toTimeline, b.bin, b.sub]).then(function (data) {
                 okCount++;
                 if (data.noSequence) noSeq = true;
-                lastMsg = data.where === "timeline" ? "“" + data.name + "” na trilha " + data.track : "“" + data.name + "” importado no projeto";
+                lastMsg = data.where === "timeline" ? tr("“{0}” na trilha {1}", data.name, data.track) : tr("“{0}” importado no projeto", data.name);
                 flashTile(f);
             }, function (err) {
                 errors.push(f.name + ": " + err.message);
@@ -52,10 +56,10 @@
         next().then(function () {
             adding = false;
             app.refreshSelectionUi();
-            if (errors.length) setStatus(errors.length === 1 && files.length === 1 ? errors[0] : errors.length + " de " + files.length + " falharam. " + errors[0], "error");
-            else if (noSeq) setStatus("Nenhuma sequência aberta: importado só no projeto.", "warning");
+            if (errors.length) setStatus(errors.length === 1 && files.length === 1 ? errors[0] : tr("{0} de {1} falharam. {2}", errors.length, files.length, errors[0]), "error");
+            else if (noSeq) setStatus(tr("Nenhuma sequência aberta: importado só no projeto."), "warning");
             else if (okCount === 1) setStatus(lastMsg + ".", "success");
-            else setStatus(okCount + " arquivos adicionados.", "success");
+            else setStatus(tr("{0} arquivos adicionados.", okCount), "success");
         });
     }
 
@@ -84,8 +88,8 @@
     var SWAP_CHECKS_MS = [0, 700, 2000, 5000];
 
     var WRONG_DROP = {
-        sourceMonitor: "Arrastar para o Source Monitor não funciona. Arraste para a timeline ou use Adicionar.",
-        newSequence: "Arraste para uma sequência já aberta na timeline."
+        sourceMonitor: N("Arrastar para o Source Monitor não funciona. Arraste para a timeline ou use Adicionar."),
+        newSequence: N("Arraste para uma sequência já aberta na timeline.")
     };
 
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -127,8 +131,8 @@
         return swaps.reduce(function (chain, s) {
             return chain.then(function () {
                 if (s.error) { results.push({ error: s.file.name + ": " + s.error }); return; }
-                if (s.wrongDrop) { results.push({ warning: WRONG_DROP[s.wrongDrop] }); return; }
-                if (s.toProject) { results.push({ warning: "“" + s.file.name + "”: MOGRT não entra no painel Project. Arraste para a timeline ou use Adicionar." }); return; }
+                if (s.wrongDrop) { results.push({ warning: tr(WRONG_DROP[s.wrongDrop]) }); return; }
+                if (s.toProject) { results.push({ warning: tr("“{0}”: MOGRT não entra no painel Project. Arraste para a timeline ou use Adicionar.", s.file.name) }); return; }
                 if (!s.spot) return;   // arrasto cancelado
                 var start = s.spot.seconds, ticks = s.spot.ticks;
                 if (prev && prev.spot.track === s.spot.track && Math.abs(s.spot.seconds - prev.spot.end) < 0.05 && prev.placedEnd > start) {
@@ -139,7 +143,7 @@
                     s.placedEnd = d.end;
                     prev = s;
                     placed++;
-                    results.push({ ok: "“" + d.name + "” na trilha " + d.track });
+                    results.push({ ok: tr("“{0}” na trilha {1}", d.name, d.track) });
                 }, function (err) {
                     prev = null;
                     results.push({ error: s.file.name + ": " + err.message });
@@ -155,11 +159,12 @@
             var errors = results.filter(function (r) { return r.error; }),
                 warnings = results.filter(function (r) { return r.warning; }),
                 oks = results.filter(function (r) { return r.ok; });
-            var left = leftOut ? " " + (leftOut === 1 ? "O outro arquivo não foi junto" : "Os outros " + leftOut + " arquivos não foram junto") + ": MOGRT vai num arrasto só dele." : "";
-            if (errors.length) setStatus(errors.length === 1 ? errors[0].error : errors.length + " item(ns) falharam. " + errors[0].error, "error");
+            var left = !leftOut ? "" : " " + (leftOut === 1 ? tr("O outro arquivo não foi junto: MOGRT vai num arrasto só dele.")
+                : tr("Os outros {0} arquivos não foram junto: MOGRT vai num arrasto só dele.", leftOut));
+            if (errors.length) setStatus(errors.length === 1 ? errors[0].error : tr("{0} item(ns) falharam. {1}", errors.length, errors[0].error), "error");
             else if (warnings.length) setStatus(warnings[0].warning, "warning");
             else if (oks.length === 1) setStatus(oks[0].ok + "." + left, left ? "warning" : "success");
-            else if (oks.length) setStatus(oks.length + " arquivos adicionados." + left, left ? "warning" : "success");
+            else if (oks.length) setStatus(tr("{0} arquivos adicionados.", oks.length) + left, left ? "warning" : "success");
             else if (left) setStatus(left.slice(1), "warning");
         });
     }

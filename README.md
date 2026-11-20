@@ -68,6 +68,7 @@ Com "Mostrar outros arquivos" ligado nas configurações, a grade lista também 
 - **Importar numa bin "Helmet Library"** e **Recriar as pastas como bins** (ex.: `Helmet Library › SFX › Whooshes`). O mesmo arquivo nunca é importado duas vezes: se já estiver na bin, ele é reaproveitado.
 - **Duplo clique:** escolhe entre adicionar na timeline e importar só no projeto.
 - **Tocar ao selecionar** e **Mostrar outros arquivos**.
+- **Language / Idioma:** o painel abre em inglês; escolha *Português (Brasil)* para trocar. Vale na hora e fica salvo.
 
 As pastas são vigiadas: arquivos novos aparecem sozinhos (o botão de atualizar força a releitura).
 
@@ -102,6 +103,7 @@ premiere-helmet-library/
   client/css/style.css     identidade Violet Terminal
   client/js/
     config.js              versão, tipos de arquivo, padrões, limites e tempos; HL.log / HL.warn
+    i18n.js                idioma do painel e o dicionário de tradução para o inglês (logo depois do config.js)
     bridge.js              ponte única painel → Premiere (JSON nos dois sentidos)
     library.js             parte Node: config.json, leitura das pastas, atalhos, cache, leitor de .mogrt, vigia, programas do Windows
     demo.js                biblioteca de exemplo quando aberto fora do Premiere (navegador comum)
@@ -151,6 +153,10 @@ Gera `dist\HelmetLibrary-<versão>.zip` com a extensão, o `instalar.bat`, o `Ad
 - Programas do Windows (Explorer, `attrib`) são chamados pelo caminho completo, com argumentos em lista, sem prompt de comando.
 - Atalhos (links) só são seguidos se apontarem para dentro da mesma biblioteca; a pasta de previews nunca pode ser um atalho.
 - Nada de `eval`, de `innerHTML` com dados ou de arquivos da internet.
+- **Textos:** escritos em português dentro de `tr("…")` (ou `N("…")` para frases guardadas, mostradas
+  depois com `tr()`/`trMsg()`); a tradução para o inglês fica no dicionário `EN` de `client/js/i18n.js`.
+  As mensagens do `host/index.jsx` continuam em português e o painel traduz ao receber. Frase nova sem tradução
+  faz os testes falharem.
 
 ### Depuração
 

@@ -29,7 +29,7 @@
 
         var fav = h("div", { className: "tree-row fav" }, [
             h("span", { className: "twisty leaf" }), icon("i-star"),
-            h("span", { className: "label" }, ["Favoritos"]), h("span", { className: "count", id: "favCount" })
+            h("span", { className: "label" }, [tr("Favoritos")]), h("span", { className: "count", id: "favCount" })
         ]);
         fav.style.paddingLeft = "0px";
         fav.addEventListener("click", function () { app.openView({ type: "favorites" }); });
@@ -38,14 +38,12 @@
 
         var sec = document.createElement("div");
         sec.className = "tree-section";
-        sec.textContent = "Bibliotecas";
+        sec.textContent = tr("Bibliotecas");
         els.tree.appendChild(sec);
 
         if (!cfg.libraries.length) {
-            els.tree.appendChild(h("div", { className: "tree-empty" }, [
-                "Nenhuma biblioteca ainda.", h("br"), "Clique em ", h("b", null, ["Adicionar pasta"]),
-                " e escolha uma pasta do computador com seus vídeos, sons, imagens e MOGRTs."
-            ]));
+            els.tree.appendChild(h("div", { className: "tree-empty" }, [tr("Nenhuma biblioteca ainda."), h("br")].concat(
+                trParts("Clique em {0} e escolha uma pasta do computador com seus vídeos, sons, imagens e MOGRTs.", h("b", null, [tr("Adicionar pasta")])))));
         }
 
         cfg.libraries.forEach(function (lib) {
@@ -73,8 +71,8 @@
         fill(row, [
             h("span", { className: "twisty" }, [icon("i-chevron")]),
             icon(lib ? "i-library" : "i-folder"),
-            h("span", { className: "label", title: missing ? "Pasta não encontrada: " + dir : dir }, [name]),
-            lib && h("button", { className: "icon-btn sm row-menu", title: "Opções" }, [icon("i-dots")])
+            h("span", { className: "label", title: missing ? tr("Pasta não encontrada: {0}", dir) : dir }, [name]),
+            lib && h("button", { className: "icon-btn sm row-menu", title: tr("Opções") }, [icon("i-dots")])
         ]);
         var kids = document.createElement("div");
         kids.className = "tree-children";
@@ -104,7 +102,7 @@
             if (missing) {
                 // confere de novo: o HD pode ter sido religado
                 app.checkLibraries().then(function () {
-                    if (state.missing[lib.path]) setStatus(app.MISSING_TEXT, "error");
+                    if (state.missing[lib.path]) setStatus(tr(app.MISSING_TEXT), "error");
                     else app.openView({ type: "folder", path: dir });
                 });
                 return;

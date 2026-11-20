@@ -32,7 +32,7 @@
         var crumb = function (label, p) { return h("button", { className: "crumb", dataset: p ? { path: p } : {} }, [label]); };
         if (!v) { fill(els.crumbPath, []); return; }
         if (v.type === "favorites") {
-            nodes.push(crumb("Favoritos"));
+            nodes.push(crumb(tr("Favoritos")));
         } else {
             var lib = L.libraryOf(cfg, v.path);
             if (lib) {
@@ -95,14 +95,15 @@
                 var lost = found.length - files.length;
                 return {
                     dirs: [], files: files,
-                    notice: lost ? lost + (lost === 1 ? " favorito não encontrado" : " favoritos não encontrados") + " — o arquivo foi movido ou está num HD/pasta de rede desconectado." : ""
+                    notice: !lost ? "" : lost === 1 ? tr("1 favorito não encontrado — o arquivo foi movido ou está num HD/pasta de rede desconectado.")
+                        : tr("{0} favoritos não encontrados — o arquivo foi movido ou está num HD/pasta de rede desconectado.", lost)
                 };
             });
         } else if (q || cfg.includeSub) {
             work = walkCached(v.path).then(function (files) {
                 return {
                     dirs: [], files: files,
-                    notice: files.truncated ? "Mostrando só os primeiros " + WALK_LIMIT.toLocaleString("pt-BR") + " arquivos desta pasta e subpastas. Abra uma subpasta para ver o resto." : ""
+                    notice: files.truncated ? tr("Mostrando só os primeiros {0} arquivos desta pasta e subpastas. Abra uma subpasta para ver o resto.", WALK_LIMIT.toLocaleString(HLI18n.locale())) : ""
                 };
             });
         } else {
@@ -135,15 +136,15 @@
                 state.items = items;
                 renderGrid(scrollTop);
             }
-            var count = files.length + " arquivo" + (files.length === 1 ? "" : "s");
-            if (q) count = files.length + " resultado" + (files.length === 1 ? "" : "s");
+            var count = files.length === 1 ? tr("1 arquivo") : tr("{0} arquivos", files.length);
+            if (q) count = files.length === 1 ? tr("1 resultado") : tr("{0} resultados", files.length);
             els.crumbCount.textContent = v ? count : "";
             if (res.notice) setStatus(res.notice, "warning");
         }, function (err) {
             if (token !== state.token) return;
             state.items = [];
             renderGrid(true);
-            showEmpty("i-folder", ["Não deu para abrir esta pasta.", h("br"), h("small", null, [L.describeError(err, "folder")])]);
+            showEmpty("i-folder", [tr("Não deu para abrir esta pasta."), h("br"), h("small", null, [trMsg(L.describeError(err, "folder"))])]);
             // a biblioteca inteira pode ter sumido (HD desligado): atualiza a árvore
             app.checkLibraries();
         }).then(function () {
@@ -164,15 +165,15 @@
 
         if (!state.items.length) {
             if (!cfg.libraries.length) {
-                var b = h("button", { className: "btn btn-primary btn-sm", id: "emptyAdd" }, [icon("i-folder-plus"), "Adicionar pasta"]);
+                var b = h("button", { className: "btn btn-primary btn-sm", id: "emptyAdd" }, [icon("i-folder-plus"), tr("Adicionar pasta")]);
                 b.style.marginTop = "12px";
                 b.addEventListener("click", app.addLibrary);
-                showEmpty("i-folder-plus", ["Adicione uma pasta do computador para criar sua biblioteca.", h("br"), b]);
+                showEmpty("i-folder-plus", [tr("Adicione uma pasta do computador para criar sua biblioteca."), h("br"), b]);
             }
-            else if (!state.view) showEmpty("i-library", ["Escolha uma pasta na barra lateral."]);
-            else if (state.view.type === "favorites") showEmpty("i-star", ["Nenhum favorito ainda.", h("br"), "Passe o mouse num arquivo e clique na estrela."]);
-            else if (searchText()) showEmpty("i-search", ["Nada encontrado para “" + searchText() + "” nesta pasta."]);
-            else showEmpty("i-folder-open", ["Esta pasta está vazia" + (cfg.filter !== "all" ? " (com este filtro)" : "") + "."]);
+            else if (!state.view) showEmpty("i-library", [tr("Escolha uma pasta na barra lateral.")]);
+            else if (state.view.type === "favorites") showEmpty("i-star", [tr("Nenhum favorito ainda."), h("br"), tr("Passe o mouse num arquivo e clique na estrela.")]);
+            else if (searchText()) showEmpty("i-search", [tr("Nada encontrado para “{0}” nesta pasta.", searchText())]);
+            else showEmpty("i-folder-open", [cfg.filter !== "all" ? tr("Esta pasta está vazia (com este filtro).") : tr("Esta pasta está vazia.")]);
         }
         refreshSelectionUi();
     }
@@ -200,9 +201,9 @@
                 h("span", { className: "tile-badge" })
             ]),
             h("div", { className: "tile-foot" }, [
-                h("span", { className: "kind kind-" + f.kind, title: KIND_LABEL[f.kind] }, [icon(kindIcon)]),
-                h("span", { className: "tile-name", title: f.name + (warn ? "\nSem pré-visualização para este formato" : "") }, [f.name]),
-                h("button", { className: "tile-star" + (isFav(f.path) ? " on" : ""), title: "Favoritar" }, [icon("i-star")])
+                h("span", { className: "kind kind-" + f.kind, title: tr(KIND_LABEL[f.kind]) }, [icon(kindIcon)]),
+                h("span", { className: "tile-name", title: f.name + (warn ? "\n" + tr("Sem pré-visualização para este formato") : "") }, [f.name]),
+                h("button", { className: "tile-star" + (isFav(f.path) ? " on" : ""), title: tr("Favoritar") }, [icon("i-star")])
             ])
         ]);
         var ph = el.querySelector(".ph");
@@ -249,7 +250,7 @@
         if (m.error) {
             var ext = thumb.querySelector(".tile-ext");
             ext.classList.add("warn");
-            ext.title = "Sem pré-visualização: " + m.error;
+            ext.title = tr("Sem pré-visualização: {0}", trMsg(m.error));   // o erro fica guardado em português no cache
         }
         if (m.title && f.kind === "mogrt") el.querySelector(".tile-name").title = f.name + "\n" + m.title;
     }
@@ -355,7 +356,7 @@
         if (e.target.closest(".tile-star")) {
             var on = toggleFav(it.path);
             e.target.closest(".tile-star").classList.toggle("on", on);
-            setStatus(on ? "Adicionado aos favoritos." : "Removido dos favoritos.", "success");
+            setStatus(on ? tr("Adicionado aos favoritos.") : tr("Removido dos favoritos."), "success");
             if (state.view && state.view.type === "favorites" && !on) loadItems(false);
             return;
         }
@@ -452,7 +453,7 @@
             document.body.appendChild(dragGhost);
         }
         var f = files[0];
-        fill(dragGhost, [icon(KIND_ICON[f.kind] || "i-file"), h("span", null, [files.length > 1 ? files.length + " arquivos" : f.name])]);
+        fill(dragGhost, [icon(KIND_ICON[f.kind] || "i-file"), h("span", null, [files.length > 1 ? tr("{0} arquivos", files.length) : f.name])]);
         return dragGhost;
     }
 
@@ -502,8 +503,8 @@
         try { dt.setDragImage(ghostFor(files), 14, 14); } catch (err) { /* usa a imagem padrão */ }
         state.dragging = { el: el, swaps: swaps, leftOut: leftOut };
         el.classList.add("dragging");
-        if (leftOut) setStatus("Só os MOGRTs vão neste arrasto. Arraste os outros arquivos à parte.", "warning", true);
-        else setStatus("Solte na timeline ou no painel Project" + (files.length > 1 ? " (" + files.length + " arquivos)" : "") + ".", "", true);
+        if (leftOut) setStatus(tr("Só os MOGRTs vão neste arrasto. Arraste os outros arquivos à parte."), "warning", true);
+        else setStatus(files.length > 1 ? tr("Solte na timeline ou no painel Project ({0} arquivos).", files.length) : tr("Solte na timeline ou no painel Project."), "", true);
     });
 
     els.grid.addEventListener("dragend", function (e) {

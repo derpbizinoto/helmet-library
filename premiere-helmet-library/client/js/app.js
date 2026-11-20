@@ -36,7 +36,7 @@
         menu: $("menu"),
         settings: $("settingsModal"), cacheHint: $("cacheHint"), cacheSize: $("cacheSize"), btnClearCache: $("btnClearCache"),
         setUseBin: $("setUseBin"), setMirror: $("setMirror"), setDblClick: $("setDblClick"),
-        setAutoplay: $("setAutoplay"), setUnknown: $("setUnknown"), versionNote: $("versionNote"),
+        setAutoplay: $("setAutoplay"), setUnknown: $("setUnknown"), langSelect: $("langSelect"), versionNote: $("versionNote"),
         ask: $("askModal"), askTitle: $("askTitle"), askText: $("askText"), askInput: $("askInput"),
         askOk: $("askOk"), askCancel: $("askCancel")
     };
@@ -58,7 +58,8 @@
     // ======================================================================
 
     var KIND_ICON = { video: "i-film", audio: "i-music", image: "i-image", mogrt: "i-sparkles", other: "i-file", unknown: "i-file" };
-    var KIND_LABEL = { video: "vídeo", audio: "áudio", image: "imagem", mogrt: "MOGRT", other: "arquivo", unknown: "arquivo" };
+    // nomes mostrados com tr() (N só marca a frase para os testes)
+    var KIND_LABEL = { video: N("vídeo"), audio: N("áudio"), image: N("imagem"), mogrt: "MOGRT", other: N("arquivo"), unknown: N("arquivo") };
 
     // ---------- montagem da tela ----------
     // Nada de innerHTML: com o Node ligado, um nome de arquivo interpretado como HTML
@@ -114,7 +115,7 @@
 
     function defaultStatus() {
         var n = app.selectedFiles().length;
-        if (n > 1) return n + " arquivos selecionados";
+        if (n > 1) return tr("{0} arquivos selecionados", n);
         if (n === 1) {
             var f = app.selectedFiles()[0];
             return f.name + "  ·  " + L.fmtBytes(f.size);

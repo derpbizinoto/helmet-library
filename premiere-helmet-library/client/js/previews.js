@@ -209,9 +209,9 @@
     function loadImage(url) {
         return new Promise(function (resolve, reject) {
             var img = new Image();
-            var t = setTimeout(function () { reject(new Error("a imagem demorou demais para abrir (disco lento ou desconectado?)")); }, HL.MEDIA_TIMEOUT_MS);
+            var t = setTimeout(function () { reject(new Error(N("a imagem demorou demais para abrir (disco lento ou desconectado?)"))); }, HL.MEDIA_TIMEOUT_MS);
             img.onload = function () { clearTimeout(t); resolve(img); };
-            img.onerror = function () { clearTimeout(t); reject(new Error("imagem não suportada")); };
+            img.onerror = function () { clearTimeout(t); reject(new Error(N("imagem não suportada"))); };
             img.src = url;
         });
     }
@@ -233,10 +233,10 @@
             v.muted = true;
             v.preload = "auto";
             var done = false;
-            var timer = setTimeout(function () { fail(new Error("o vídeo demorou demais para abrir (disco lento ou desconectado?)")); }, HL.MEDIA_TIMEOUT_MS);
+            var timer = setTimeout(function () { fail(new Error(N("o vídeo demorou demais para abrir (disco lento ou desconectado?)"))); }, HL.MEDIA_TIMEOUT_MS);
             function cleanup() { clearTimeout(timer); v.removeAttribute("src"); try { v.load(); } catch (e) { } }
             function fail(err) { if (done) return; done = true; cleanup(); reject(err); }
-            v.onerror = function () { fail(new Error("codec não suportado no preview (use H.264)")); };
+            v.onerror = function () { fail(new Error(N("codec não suportado no preview (use H.264)"))); };
             v.onloadedmetadata = function () {
                 var d = isFinite(v.duration) ? v.duration : 0;
                 v.currentTime = d ? Math.min(d * 0.3, 3) : 0;
@@ -244,7 +244,7 @@
             v.onseeked = function () {
                 if (done) return;
                 try {
-                    if (!v.videoWidth) throw new Error("vídeo sem imagem");
+                    if (!v.videoWidth) throw new Error(N("vídeo sem imagem"));
                     var canvas = drawContain(v, v.videoWidth, v.videoHeight, false);
                     var meta = { hasThumb: true, width: v.videoWidth, height: v.videoHeight, duration: isFinite(v.duration) ? v.duration : 0 };
                     for (var k in extra) meta[k] = extra[k];
@@ -263,7 +263,7 @@
             L.fs.readFile(filePath, function (err, buf) {
                 if (err) return reject(err);
                 var ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
-                ctx().decodeAudioData(ab, resolve, function () { reject(new Error("formato de áudio não suportado no preview")); });
+                ctx().decodeAudioData(ab, resolve, function () { reject(new Error(N("formato de áudio não suportado no preview"))); });
             });
         });
     }
@@ -327,7 +327,7 @@
     }
 
     function audioThumb(file, ci) {
-        if (file.size > MAX_AUDIO_BYTES) return Promise.reject(new Error("arquivo grande demais para gerar a forma de onda"));
+        if (file.size > MAX_AUDIO_BYTES) return Promise.reject(new Error(N("arquivo grande demais para gerar a forma de onda")));
         return decodeFile(file.path).then(function (buffer) {
             var peaks = computePeaks(buffer, PEAKS);
             var c = document.createElement("canvas");
@@ -360,7 +360,7 @@
         return L.inspectMogrt(file.path).catch(function (e) {
             // erro de disco (sem permissão, desconectado) ou .mogrt danificado/grande demais
             if (e && e.code && e.code !== "MOGRT_INVALID") throw new Error(L.describeError(e, "file"));
-            throw new Error("MOGRT sem preview (arquivo grande demais ou danificado: " + e.message + ")");
+            throw new Error(N("MOGRT sem preview (arquivo grande demais ou danificado: {0})", e.message));
         }).then(function (info) {
             meta.title = info.title || "";
             var chain = Promise.resolve();

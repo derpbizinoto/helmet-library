@@ -39,16 +39,16 @@
         var one = files.length === 1 ? files[0] : null;
         var fav = one && isFav(one.path);
         showMenu(x, y, [
-            { label: files.length > 1 ? "Adicionar " + files.length + " na timeline" : "Adicionar na timeline", icon: "i-timeline", action: function () { app.addFiles(files, true); } },
-            { label: "Importar só no projeto", icon: "i-download", action: function () { app.addFiles(files, false); } },
+            { label: files.length > 1 ? tr("Adicionar {0} na timeline", files.length) : tr("Adicionar na timeline"), icon: "i-timeline", action: function () { app.addFiles(files, true); } },
+            { label: tr("Importar só no projeto"), icon: "i-download", action: function () { app.addFiles(files, false); } },
             "-",
-            { label: one ? (fav ? "Remover dos favoritos" : "Favoritar") : "Favoritar selecionados", icon: "i-star", action: function () {
+            { label: one ? (fav ? tr("Remover dos favoritos") : tr("Favoritar")) : tr("Favoritar selecionados"), icon: "i-star", action: function () {
                 if (one) toggleFav(one.path);
                 else addFavorites(files.map(function (f) { return f.path; }));
                 app.loadItems(false);
             } },
-            { label: "Mostrar no Explorer", icon: "i-folder-open", disabled: !one, action: function () { L.reveal(one.path); } },
-            { label: "Gerar preview de novo", icon: "i-refresh", disabled: files.every(function (f) { return !f.canPreview; }), action: function () {
+            { label: tr("Mostrar no Explorer"), icon: "i-folder-open", disabled: !one, action: function () { L.reveal(one.path); } },
+            { label: tr("Gerar preview de novo"), icon: "i-refresh", disabled: files.every(function (f) { return !f.canPreview; }), action: function () {
                 files.forEach(function (f) { P.forget(f); });
                 app.loadItems(false);
                 var cur = PL.currentFile();
@@ -59,16 +59,16 @@
 
     function folderMenu(x, y, dir, lib) {
         var items = [
-            { label: "Abrir", icon: "i-folder-open", action: function () { app.openView({ type: "folder", path: dir }); } },
-            { label: "Atualizar", icon: "i-refresh", action: function () { app.refreshFolder(dir); setStatus("Pasta atualizada.", "success"); } },
-            { label: "Abrir no Explorer", icon: "i-folder", action: function () { L.openFolder(dir); } }
+            { label: tr("Abrir"), icon: "i-folder-open", action: function () { app.openView({ type: "folder", path: dir }); } },
+            { label: tr("Atualizar"), icon: "i-refresh", action: function () { app.refreshFolder(dir); setStatus(tr("Pasta atualizada."), "success"); } },
+            { label: tr("Abrir no Explorer"), icon: "i-folder", action: function () { L.openFolder(dir); } }
         ];
         if (lib) {
             items.push("-",
-                { label: "Renomear", icon: "i-pencil", action: function () { app.renameLibrary(lib); } },
-                { label: "Limpar previews desta biblioteca", icon: "i-trash", disabled: cfg.cacheMode !== "library", action: function () { app.clearLibraryCache(lib); } },
+                { label: tr("Renomear"), icon: "i-pencil", action: function () { app.renameLibrary(lib); } },
+                { label: tr("Limpar previews desta biblioteca"), icon: "i-trash", disabled: cfg.cacheMode !== "library", action: function () { app.clearLibraryCache(lib); } },
                 "-",
-                { label: "Remover da extensão", icon: "i-x", danger: true, action: function () { app.removeLibrary(lib); } });
+                { label: tr("Remover da extensão"), icon: "i-x", danger: true, action: function () { app.removeLibrary(lib); } });
         }
         showMenu(x, y, items);
     }

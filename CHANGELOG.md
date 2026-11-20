@@ -1,5 +1,16 @@
 # Changelog — Helmet Library
 
+## 1.2.0 — 2026-11-20 · inglês
+
+- ★ O painel agora tem inglês e português. **Inglês é o idioma padrão**; para trocar, abra as
+  **Configurações** (Settings) e escolha em **Language / Idioma**. A troca vale na hora (sem
+  fechar o painel) e fica salva.
+- As mensagens que vêm do Premiere (erros ao adicionar, MOGRT, arrastar) e os avisos de preview
+  guardados no cache também aparecem no idioma escolhido.
+- A última mensagem da barra de baixo fica no idioma em que foi escrita até a próxima.
+- Nomes de pastas e arquivos nunca são traduzidos (uma pasta chamada "Abrir" continua "Abrir").
+- Testes novos garantem que toda frase do painel, do index.html e do host tem tradução.
+
 ## 1.1.0 — 2026-11-20 · limpeza, segurança e arrastar
 
 O painel funciona como antes, só que mais seguro, sem travar com HD/rede desconectados e com mensagens mais claras. A única mudança de comportamento é o **arrastar**, que agora segue o método do Animation Composer (vídeo entra com imagem e som, MOGRT entra arrastando). Detalhes técnicos na `AUDITORIA.md`.
