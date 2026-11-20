@@ -1,5 +1,10 @@
 # Changelog — Helmet Library
 
+## 1.3.8 — correções do reteste da 1.3.7
+
+- **MOGRT solto na timeline sem sequência** (D6): o Premiere criava uma sequência nova e o MOGRT ficava nela. A sequência criada pelo Premiere agora é reconhecida também pelo nome sem extensão e pelo tamanho da imagem cinza (192×108); ela é desfeita e a barra de baixo avisa.
+- **MOGRT não vai mais junto com outros arquivos** (D9): com vídeo, áudio ou imagem selecionados junto, o arrasto leva só os MOGRTs e a barra de baixo avisa para arrastar os outros à parte. É como o Animation Composer (um item por vez). Assim o Ctrl+Z não traz mais a imagem cinza de volta.
+
 ## 1.3.7 — MOGRT arrastado com os passos do Animation Composer
 
 - **MOGRT arrastado para a timeline:** depois de soltar, a extensão desfaz a soltura da imagem cinza (o mesmo Ctrl+Z do Premiere que o Composer usa) e coloca o MOGRT no lugar dela. Assim, o que a imagem tinha coberto volta inteiro (antes podia ficar um buraco), e as trilhas criadas ao soltar acima da última continuam lá.

@@ -1,17 +1,25 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.7
+# Roteiro de testes no Premiere — Helmet Library 1.3.8
 
-> **Reteste da 1.3.7.** Instale a 1.3.7 (`instalar.bat`). O arrastar de MOGRT agora segue os passos do Animation Composer. Confira só isto:
+> **Reteste da 1.3.8.** Instale a 1.3.8 (`instalar.bat`). Confira só isto:
 >
-> - [ ] **D1** Arraste um **MOGRT** para a timeline, num lugar vazio: vira o MOGRT no mesmo lugar e na mesma trilha, mais rápido que antes, e o **MOGRT fica selecionado** (aparece no Essential Graphics).
-> - [ ] **D2** Arraste um MOGRT **por cima de um vídeo** que já está na timeline (mesma trilha): o MOGRT entra por cima, e a parte do vídeo que a imagem cinza cobriu e o MOGRT não cobre **continua lá** (sem buraco).
-> - [ ] **D3** Arraste um MOGRT para o **espaço vazio acima da última trilha de vídeo**: o Premiere cria uma trilha nova e o MOGRT fica nela.
-> - [ ] **D4** Arraste **dois MOGRTs** juntos: entram em fila, e os dois ficam selecionados.
-> - [ ] **D5** Depois do D1, aperte **Ctrl+Z** uma vez: o MOGRT sai. Anote o que mais acontece em mais um ou dois Ctrl+Z (não deve voltar a imagem cinza).
-> - [ ] **D6** Feche todas as sequências e arraste um MOGRT para a **timeline vazia**: não fica nenhuma sequência nova nem imagem cinza no projeto, e a barra de baixo diz "Arraste para uma sequência já aberta na timeline". Aperte Ctrl+Shift+Z: a sequência cinza não deve voltar.
-> - [ ] **D7** Arraste um MOGRT para o **Source Monitor**: ele fecha, não sobra imagem cinza no projeto, e a barra de baixo explica.
-> - [ ] **D8** Arraste um MOGRT para o **painel Project**: como antes, uns 5 segundos depois a imagem some e a barra de baixo avisa.
-> - [ ] **D9** Arraste juntos um **vídeo e um MOGRT** para a timeline: os dois entram (como na 1.3.6).
-> - [ ] **D10** Comece a arrastar um MOGRT e desista (Esc): nada acontece, e nada que você fez antes é desfeito.
+> - [ ] **E1** (era o D6) Feche todas as sequências e arraste um MOGRT para a **timeline vazia**: não fica nenhuma sequência nova nem imagem cinza no projeto, e a barra de baixo diz "Arraste para uma sequência já aberta na timeline". Aperte Ctrl+Shift+Z: a sequência cinza não volta.
+> - [ ] **E2** Crie uma sequência nova **vazia** sua e arraste um MOGRT para ela: o MOGRT entra normalmente (a sua sequência não some).
+> - [ ] **E3** (era o D9) Selecione um **vídeo e um MOGRT** e arraste os dois: durante o arrasto a barra de baixo diz "Só os MOGRTs vão neste arrasto…"; só o MOGRT entra, e a barra de baixo avisa que o outro arquivo não foi junto. Depois aperte Ctrl+Z algumas vezes: a imagem cinza não volta.
+> - [ ] **E4** Arraste o vídeo sozinho logo depois: entra normal (como no C1).
+> - [ ] **E5** D1 continua: um MOGRT sozinho entra e fica selecionado.
+
+> **Reteste da 1.3.7.** Resultado: D1 a D5, D7, D8 e D10 passaram. D6 e D9 falharam (corrigidos na 1.3.8). Instale a 1.3.7 (`instalar.bat`). O arrastar de MOGRT agora segue os passos do Animation Composer. Confira só isto:
+>
+> - [x] **D1** Arraste um **MOGRT** para a timeline, num lugar vazio: vira o MOGRT no mesmo lugar e na mesma trilha, mais rápido que antes, e o **MOGRT fica selecionado** (aparece no Essential Graphics).
+> - [x] **D2** Arraste um MOGRT **por cima de um vídeo** que já está na timeline (mesma trilha): o MOGRT entra por cima, e a parte do vídeo que a imagem cinza cobriu e o MOGRT não cobre **continua lá** (sem buraco).
+> - [x] **D3** Arraste um MOGRT para o **espaço vazio acima da última trilha de vídeo**: o Premiere cria uma trilha nova e o MOGRT fica nela.
+> - [x] **D4** Arraste **dois MOGRTs** juntos: entram em fila, e os dois ficam selecionados.
+> - [x] **D5** Depois do D1, aperte **Ctrl+Z** uma vez: o MOGRT sai. Anote o que mais acontece em mais um ou dois Ctrl+Z (não deve voltar a imagem cinza).
+> - [ ] **D6** Feche todas as sequências e arraste um MOGRT para a **timeline vazia**: não fica nenhuma sequência nova nem imagem cinza no projeto, e a barra de baixo diz "Arraste para uma sequência já aberta na timeline". Aperte Ctrl+Shift+Z: a sequência cinza não deve voltar. ***- Ele criou uma sequência nova com o mogrt dentro.***
+> - [x] **D7** Arraste um MOGRT para o **Source Monitor**: ele fecha, não sobra imagem cinza no projeto, e a barra de baixo explica.
+> - [x] **D8** Arraste um MOGRT para o **painel Project**: como antes, uns 5 segundos depois a imagem some e a barra de baixo avisa.
+> - [ ] **D9** Arraste juntos um **vídeo e um MOGRT** para a timeline: os dois entram (como na 1.3.6). ***- Funcionou mas eu dei ctrl + z e o png cinza voltou***
+> - [x] **D10** Comece a arrastar um MOGRT e desista (Esc): nada acontece, e nada que você fez antes é desfeito.
 > - Diferença esperada: enquanto arrasta, o retângulo cinza tem a duração padrão de imagem do Premiere, não a do MOGRT (o Composer usa um plugin próprio para isso). Onde o MOGRT entra não muda.
 
 > **Reteste da 1.3.6.** Resultado: C1 a C6 passaram. Instale a 1.3.6 (`instalar.bat`). O vídeo agora é arrastado exatamente como no Animation Composer (só o caminho do arquivo; o Premiere importa ao soltar). Confira só isto:

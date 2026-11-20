@@ -476,3 +476,21 @@ O que ficou diferente, de propósito:
   se aplicam.
 - A trilha de áudio continua sendo a primeira livre no tempo do MOGRT (o Composer usa a do áudio do
   `.mhbricks`, que o PNG não tem).
+
+### 1.3.8 — correções do reteste da 1.3.7
+
+Reteste da 1.3.7: D1 a D5, D7, D8 e D10 passaram. Duas falhas:
+- **D6** (timeline vazia): ficou uma sequência nova com o MOGRT. A conferência do Composer (nome de um
+  clipe = nome da sequência) não bateu no Premiere 26, provavelmente por causa da extensão. Sem
+  reconhecer a sequência nova, o fluxo seguiu como timeline comum e colocou o MOGRT nela. Agora
+  `hl_isPlaceholderSequence` compara nomes sem extensão (do clipe e do arquivo da imagem) e também
+  aceita o tamanho de quadro 192×108 (o tamanho do PNG provisório, `HL_PLACEHOLDER_W/H`). Continua
+  exigindo que a sequência só tenha imagens provisórias, então uma sequência vazia do usuário onde o
+  MOGRT é solto não é desfeita (teste automático).
+- **D9** (vídeo + MOGRT juntos): funcionou, mas o Ctrl+Z trazia a imagem cinza de volta. No arrasto
+  misto a imagem saía clipe por clipe (`remove`, mover para bin, apagar bin), e cada passo fica no
+  histórico. Desfazer a soltura mista tiraria também o vídeo, que teria de ser importado de novo
+  (`importFiles` traz o painel Project para a frente, problema da 1.3.5). Decisão do usuário: igual ao
+  Composer, que arrasta um item por vez. Se a seleção tem MOGRT e outros arquivos, o `dragstart` leva
+  só os MOGRTs e a barra de baixo avisa. A retirada clipe por clipe fica só como reserva (se a imagem
+  provisória de um MOGRT não puder ser criada).
