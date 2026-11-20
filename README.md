@@ -4,7 +4,7 @@ Extensão CEP para o Adobe Premiere Pro que transforma pastas do computador em b
 
 Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (Violet Terminal com degradês sutis), Geo em caixa alta no nome e Roboto no resto.
 
-Versão atual: **1.3.4** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
+Versão atual: **1.3.5** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
 
 ## Instalação
 
@@ -36,7 +36,7 @@ Clique em **Adicionar pasta** (embaixo, na barra da esquerda) e escolha uma past
 - Clique numa pasta da árvore para ver os arquivos dela. Os cards de subpasta e o caminho no topo também navegam.
 - **Preview:** clicar num arquivo abre o preview embaixo (áudio e vídeo tocam sozinhos, o que pode ser desligado). Clicar de novo no mesmo arquivo fecha o preview. Vídeos e imagens ganham um preview maior, e a barra de progresso mostra a minutagem exata (passe o mouse para ver o tempo de qualquer ponto, arraste para buscar). O preview só aparece com algum arquivo selecionado: clicar no vazio da grade ou apertar Esc fecha. Ao passar o mouse, só os GIFs animam no card; vídeos e MOGRTs mostram a miniatura parada.
 - **Para usar no projeto:**
-  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**. Ao começar a arrastar um **vídeo**, ele já é importado na bin **Helmet Library** em segundo plano (o Premiere só traz imagem e som de um vídeo arrastado quando ele já está no projeto); o painel Project pode aparecer por um instante e o Helmet Library volta para a frente. Se você soltar o vídeo no painel Project, a cópia da bin é retirada em alguns segundos para não ficar duplicada (só se ela não estiver em nenhuma sequência). Se desistir do arrasto, o vídeo fica na bin. Áudio e imagem entram arrastando sem isso. **MOGRT** arrastado aparece por um instante como uma imagem cinza com o nome dele, que vira o MOGRT de verdade no mesmo lugar em até uns 2 segundos (o Premiere não aceita .mogrt arrastado de um painel); a imagem fica em `%LOCALAPPDATA%Helmet Libraryarrastar`;
+  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**. **Vídeo** e **MOGRT** arrastados aparecem por um instante como uma imagem cinza com o nome deles, que vira o item de verdade no mesmo lugar em até uns 2 segundos (o Premiere não aceita `.mogrt` arrastado de um painel, e vídeo que ainda não está no projeto entrava só com o áudio). Vários em fila na mesma trilha continuam em fila, cada um com a duração real. Se o lugar do vídeo já tiver algo na trilha de vídeo ou de áudio, ele vai para a primeira trilha livre no mesmo tempo (nada é coberto). Vídeo solto no painel **Project** é importado na bin; MOGRT não entra no painel Project (o Premiere não aceita), então arraste-o para a timeline. As imagens provisórias ficam em `%LOCALAPPDATA%\Helmet Library\arrastar`. Áudio e imagem vão direto;
   - ou **Adicionar** / Enter / duplo clique: coloca na timeline, na posição da agulha, na primeira trilha livre (se não houver, cria uma trilha);
   - ou **Só no projeto** / Shift+Enter: importa sem mexer na timeline.
 - **Favoritos:** a estrela no card (aparece ao passar o mouse) ou o menu de clique direito.
@@ -122,7 +122,7 @@ Add Keys.reg               libera extensões não assinadas (alternativa manual)
 empacotar.ps1              gera o .zip para distribuir
 tests/                     testes automáticos (Node)
 TESTES.md                  roteiro de testes no Premiere
-AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1 a 1.3.4
+AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1 a 1.3.5
 ```
 
 ## Para quem mexe no código

@@ -1,9 +1,16 @@
 # Changelog — Helmet Library
 
+## 1.3.5 — vídeo arrastado com imagem provisória
+
+- **Vídeo arrastado** agora usa o mesmo esquema do MOGRT: vai como uma imagem cinza com o nome dele, trocada pelo vídeo (imagem e som) no mesmo lugar depois de soltar.
+- **Sai a importação ao começar a arrastar** (1.3.1 a 1.3.3), que fazia o painel Project vir para a frente. Com ela saem também a retirada da cópia duplicada e o pedido para o painel voltar, que não são mais necessários.
+- Vários vídeos/MOGRTs em fila continuam em fila, cada um com a duração real. Se o lugar já tiver algo na trilha de vídeo ou de áudio, o vídeo vai para a primeira trilha livre no mesmo tempo, sem cobrir nada.
+- **MOGRT solto no painel Project** não tenta mais importar (o Premiere abria o aviso "Motion Graphics Templates cannot be imported into the Project panel"): a imagem provisória sai e a barra de baixo explica que é para arrastar para a timeline.
+
 ## 1.3.4 — arrastar MOGRT
 
 - **MOGRT agora entra arrastando.** O Premiere não aceita `.mogrt` arrastado de um painel, então a extensão arrasta no lugar uma imagem cinza com o nome do MOGRT. Depois de soltar, ela troca a imagem pelo MOGRT na mesma posição e trilha e tira a imagem do projeto. Solto no painel Project, o MOGRT vai "só no projeto". É a mesma ideia usada por outras extensões de biblioteca.
-- A imagem provisória fica em `%LOCALAPPDATA%Helmet Libraryarrastar` (uma por MOGRT, minúscula).
+- A imagem provisória fica em `%LOCALAPPDATA%\Helmet Library\arrastar` (uma por MOGRT, minúscula).
 
 ## 1.3.3 — painel de volta depois de soltar
 

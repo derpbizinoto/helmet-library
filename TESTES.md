@@ -1,16 +1,34 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.4
+# Roteiro de testes no Premiere — Helmet Library 1.3.5
 
-> **Reteste da 1.3.4.** Instale a 1.3.4 (`instalar.bat`). Ela junta a tentativa da 1.3.3 (painel de volta) com o arrastar de MOGRT. Confira só isto:
+> **Reteste da 1.3.5.** Instale a 1.3.5 (`instalar.bat`). O vídeo agora usa o mesmo esquema do MOGRT (imagem provisória) e não é mais importado ao começar a arrastar. Confira só isto:
 >
-> - [ ] **M1** Arraste um **MOGRT** para a timeline e solte. Por um instante aparece uma imagem cinza com o nome dele; em até uns 2 segundos ela vira o **MOGRT**, no mesmo lugar e na mesma trilha. A barra de baixo diz "“nome” na trilha V…".
-> - [ ] **M2** Depois do M1, no painel Project **não** sobra nenhuma imagem cinza (`.png` com o nome do MOGRT) nem bin "Helmet Library - removendo…".
-> - [ ] **M3** Arraste **dois MOGRTs** selecionados juntos: os dois viram MOGRT.
+> - [ ] **V1** Arraste um **vídeo** que ainda não está no projeto para a timeline e solte. Por um instante aparece a imagem cinza; em até uns 2 segundos ela vira o vídeo, **com imagem e som**, no mesmo lugar. **O painel Project não vem para a frente** (nem ao começar a arrastar, nem depois de soltar). Anote se ele ainda vier depois de soltar.
+> - [ ] **V2** Depois do V1, o vídeo está na bin **Helmet Library** e no painel Project não sobra nenhuma imagem cinza (`.png` com o nome do vídeo).
+> - [ ] **V3** Arraste **três vídeos** selecionados juntos: entram em fila, um depois do outro, cada um com a duração inteira, sem sobrepor.
+> - [ ] **V4** Arraste um vídeo para um lugar da timeline onde a trilha de áudio de baixo já tem um som: o som que já estava continua intacto; o vídeo vai para outra trilha livre (a barra de baixo diz qual).
+> - [ ] **V5** Arraste um vídeo para o **painel Project**: uns 5 segundos depois a imagem cinza some e o vídeo aparece na bin Helmet Library (uma cópia só).
+> - [ ] **V6** Arraste um **MOGRT** para o **painel Project**: o aviso do Premiere **não** aparece; a imagem cinza some e a barra de baixo diz para arrastar para a timeline.
+> - [ ] **V7** Arraste juntos um vídeo e um MOGRT para a timeline: os dois entram em fila.
+> - [ ] **V8** Áudio e imagem continuam entrando arrastando, como antes.
+
+> **Reteste da 1.3.4.** Resultado: M1, M2, M3, M5 e M6 passaram. M4: ao soltar MOGRT no Project, o Premiere mostrou o aviso "Motion Graphics Templates cannot be imported into the Project panel". O painel Project continuou vindo para a frente ao arrastar vídeo.
+>
+> - [x] **M1** Arraste um **MOGRT** para a timeline e solte. Por um instante aparece uma imagem cinza com o nome dele; em até uns 2 segundos ela vira o **MOGRT**, no mesmo lugar e na mesma trilha. A barra de baixo diz "“nome” na trilha V…".
+>
+> - [x] **M2** Depois do M1, no painel Project **não** sobra nenhuma imagem cinza (`.png` com o nome do MOGRT) nem bin "Helmet Library - removendo…".
+>
+> - [x] **M3** Arraste **dois MOGRTs** selecionados juntos: os dois viram MOGRT.
+>
 > - [ ] **M4** Arraste um MOGRT para o **painel Project**: uns 5 segundos depois a imagem cinza some e o MOGRT é importado na bin (ou aparece o aviso "Esta versão do Premiere só aceita MOGRT direto na timeline").
-> - [ ] **M5** Comece a arrastar um MOGRT e desista (solte de volta no painel ou aperte Esc): nada aparece no projeto.
-> - [ ] **M6** Arraste um MOGRT com nome difícil (acento, emoji): o nome do clipe na timeline fica certo.
+>
+> - [x] **M5** Comece a arrastar um MOGRT e desista (solte de volta no painel ou aperte Esc): nada aparece no projeto.
+>
+> - [x] **M6** Arraste um MOGRT com nome difícil (acento, emoji): o nome do clipe na timeline fica certo.
 >
 > - [ ] **R1b** Arraste um **vídeo** que ainda não está no projeto para a timeline e solte. Em até 1 segundo depois de soltar, o painel **Helmet Library volta para a frente** sozinho. Anote se: (a) não volta; (b) volta, mas só depois de um tempo grande; (c) o painel recarrega (perde a pasta aberta ou a seleção).
+>
 > - [ ] **R2b** Repita R3 (soltar no Project) e R5 (vários vídeos): continuam funcionando.
+>
 > - Se o R1b falhar, o Premiere não deixa a extensão voltar para a frente. Saída sem código: encaixe o Helmet Library num grupo de painéis diferente do Project (arraste a aba dele para outro canto da janela), assim os dois ficam visíveis.
 
 > **Reteste da 1.3.2.** Resultado: R2 a R5 passaram; no R1 o painel Project continuou abrindo.
@@ -49,14 +67,14 @@ Marque cada item com `x` quando passar. Se algo falhar, anote o número do item,
      - `🔥 explosão 💥.mp4` (emoji)
      - `   espaços   no   meio.png` (vários espaços)
      - `nome.com.pontos.mp3`
-2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.4.
+2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.5.
 3. Abra o Premiere, crie um projeto de teste e uma sequência.
 
 ## 1. Instalação
 
-- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.4**, sem erro.
+- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.5**, sem erro.
 - [x] 1.2 **Janela › Extensões › Helmet Library** abre o painel, com o visual de sempre.
-- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.4**.
+- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.5**.
 - [x] 1.4 O painel aparece **uma vez só** no menu de extensões (sem cópia duplicada).
 - [x] 1.5 As bibliotecas e favoritos que você já tinha continuam lá.
 

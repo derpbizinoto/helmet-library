@@ -373,3 +373,23 @@ projeto se ele não estiver em nenhuma sequência (sem apagar bins, que podem se
 última conferência o PNG só estiver no projeto, foi solto no Project: vira "só no projeto".
 Risco conhecido: se o `importMGT` falhar depois de tirar a imagem, o lugar fica vazio e a barra de
 baixo mostra o erro (o botão Adicionar continua funcionando).
+
+### 1.3.5 — vídeo com imagem provisória; fim da pré-importação
+
+Reteste da 1.3.4: MOGRT arrastando funcionou (M1, M2, M3, M5, M6). Problemas: MOGRT solto no Project
+fazia o `importFiles` abrir o aviso do Premiere ("Motion Graphics Templates cannot be imported into the
+Project panel"), e o painel Project continuava vindo para a frente com vídeo (o `requestOpenExtension`
+da 1.3.3 não teve efeito).
+
+A 1.3.5 aplica ao vídeo o esquema do MOGRT e tira a pré-importação (com ela saem `hl_dropDuplicate` e o
+pedido de painel de volta). A troca virou duas funções:
+- `hl_takePlaceholder(imagem, lastTry)`: acha os clipes da imagem na sequência ativa, tira (timeline e
+  projeto) e devolve trilha, ticks, segundos e fim. Só no projeto na última conferência = solto no Project.
+- `hl_placeAt(arquivo, tipo, bin, sub, trilha, segundos, ticks)`: MOGRT com `importMGT`; vídeo importado na
+  bin e colocado com `overwriteClip` na mesma trilha se V e A desse número estiverem livres durante o
+  clipe inteiro, senão na primeira trilha livre no mesmo tempo (nada é coberto).
+O painel (host.js) tira todas as imagens primeiro e depois coloca os itens; imagens em fila na mesma
+trilha viram itens em fila com a duração real. Vídeo solto no Project vai para a bin com `hl_add`; MOGRT
+solto no Project não é importado (só aviso na barra de baixo).
+Ponto em aberto: a troca do vídeo usa `importFiles`, como o botão Adicionar. Se o Premiere trouxer o
+Project para a frente nesse import, isso acontece depois de soltar (não mais durante o arrasto).
