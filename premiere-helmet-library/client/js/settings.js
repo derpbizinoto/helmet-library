@@ -19,10 +19,16 @@
         els.setDblClick.value = cfg.dblClick;
         els.setAutoplay.checked = !!cfg.autoplay;
         els.setUnknown.checked = !!cfg.showUnknown;
-        els.versionNote.textContent = "Helmet Library " + CLIENT_VERSION + "  ·  configuração em " + (L.demo ? "%APPDATA%\\Helmet Library" : L.appDataDir());
-        updateCacheInfo();
+        els.langSelect.value = HLI18n.lang();
+        updateTexts();
         updateMirrorState();
         els.settings.hidden = false;
+    }
+
+    // textos montados pelo código (também refeitos ao trocar o idioma com a janela aberta)
+    function updateTexts() {
+        els.versionNote.textContent = tr("Helmet Library {0}  ·  configuração em {1}", CLIENT_VERSION, L.demo ? "%APPDATA%\\Helmet Library" : L.appDataDir());
+        updateCacheInfo();
     }
 
     function updateMirrorState() {
@@ -33,18 +39,18 @@
     var cacheInfoToken = 0;
     function updateCacheInfo() {
         if (cfg.cacheMode === "library") {
-            fill(els.cacheHint, ["Os previews ficam numa pasta oculta ", h("span", { className: "path" }, [L.CACHE_DIR_NAME]),
-                " dentro de cada biblioteca. Copiou a pasta para outro PC ou HD? Os previews vão junto."]);
+            fill(els.cacheHint, trParts("Os previews ficam numa pasta oculta {0} dentro de cada biblioteca. Copiou a pasta para outro PC ou HD? Os previews vão junto.",
+                h("span", { className: "path" }, [L.CACHE_DIR_NAME])));
         } else {
-            fill(els.cacheHint, ["Os previews ficam em ", h("span", { className: "path" }, [L.systemCacheDir()]), ". As pastas da biblioteca não são alteradas."]);
+            fill(els.cacheHint, trParts("Os previews ficam em {0}. As pastas da biblioteca não são alteradas.", h("span", { className: "path" }, [L.systemCacheDir()])));
         }
         var token = ++cacheInfoToken;
         L.cacheSize(app.cacheDirs()).then(function (size) {
             if (token !== cacheInfoToken) return;
-            els.cacheSize.textContent = size.files ? "Ocupando " + L.fmtBytes(size.bytes) + " (" + size.files + " arquivos)" : "Nenhum preview salvo ainda.";
+            els.cacheSize.textContent = size.files ? tr("Ocupando {0} ({1} arquivos)", L.fmtBytes(size.bytes), size.files) : tr("Nenhum preview salvo ainda.");
         }, function (err) {
             if (token !== cacheInfoToken) return;
-            els.cacheSize.textContent = "Não deu para medir os previews: " + L.describeError(err, "folder");
+            els.cacheSize.textContent = tr("Não deu para medir os previews: {0}", trMsg(L.describeError(err, "folder")));
         });
     }
 
@@ -68,9 +74,12 @@
     els.setDblClick.addEventListener("change", function () { cfg.dblClick = els.setDblClick.value; save(); });
     els.setAutoplay.addEventListener("change", function () { cfg.autoplay = els.setAutoplay.checked; save(); });
     els.setUnknown.addEventListener("change", function () { cfg.showUnknown = els.setUnknown.checked; save(); app.forgetWalk(null); if (state.view) app.loadItems(false); });
+    // idioma: fica guardado no próprio painel (i18n.js); a tela muda na hora (main.js)
+    els.langSelect.addEventListener("change", function () { HLI18n.setLang(els.langSelect.value); });
 
     // ---------- usado pelos outros arquivos ----------
 
     app.openSettings = openSettings;
     app.updateCacheInfo = updateCacheInfo;
+    app.updateSettingsTexts = updateTexts;
 })(window.HLApp);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <!-- Rede de proteção: só os scripts da própria extensão rodam (nada embutido no HTML,
@@ -181,6 +181,15 @@
                         <small>Lista também o que o Premiere não importa</small></span>
                     <span class="switch"><input type="checkbox" id="setUnknown" /><span class="slider-ui"></span></span>
                 </label>
+
+                <div class="group-label">Language / Idioma</div>
+                <div class="inline-field">
+                    <label for="langSelect">Idioma do painel</label>
+                    <select id="langSelect" class="input">
+                        <option value="en">English</option>
+                        <option value="pt">Português (Brasil)</option>
+                    </select>
+                </div>
                 <p class="hint version" id="versionNote"></p>
             </div>
         </div>
@@ -202,6 +211,7 @@
     </div>
 
     <script src="js/config.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="js/CSInterface.js"></script>
     <script src="js/bridge.js"></script>
     <script src="js/library.js"></script>

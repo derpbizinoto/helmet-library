@@ -186,9 +186,7 @@
         els.btnPlay.disabled = !media;
         if (mode !== "video") { els.video.pause(); els.video.removeAttribute("src"); try { els.video.load(); } catch (e) { } }
         if (mode !== "image") els.image.removeAttribute("src");
-        if (mode === "none") {
-            els.empty.textContent = file ? "Sem pré-visualização para ." + file.ext + ". Dá para adicionar mesmo assim." : "Selecione um arquivo para pré-visualizar.";
-        }
+        if (mode === "none") els.empty.textContent = emptyText(file);
         setPlayingUi(false);
         drawCursor(0);
         onState(mode);
@@ -343,9 +341,20 @@
         els.seek.classList.toggle("disabled", !(state.mode === "audio" || state.mode === "video"));
     }
 
+    function emptyText(file) {
+        return file ? tr("Sem pré-visualização para .{0}. Dá para adicionar mesmo assim.", file.ext) : tr("Selecione um arquivo para pré-visualizar.");
+    }
+
+    // troca de idioma: refaz os textos que o player escreveu
+    function relabel() {
+        if (state.mode === "none") els.empty.textContent = emptyText(state.file);
+        setPlayingUi(els.btnPlay.classList.contains("playing"));
+        redrawWave();
+    }
+
     function setPlayingUi(on) {
         els.btnPlay.classList.toggle("playing", !!on);
-        els.btnPlay.title = on ? "Pausar (espaço)" : "Tocar (espaço)";
+        els.btnPlay.title = on ? tr("Pausar (espaço)") : tr("Tocar (espaço)");
         els.btnPlay.querySelector("use").setAttribute("href", on ? "#i-pause" : "#i-play");
     }
 
@@ -398,7 +407,7 @@
             g.fillStyle = "rgba(185,168,203,0.6)";
             g.font = (12 * dpr) + "px Roboto, sans-serif";
             g.textAlign = "center";
-            g.fillText("Gerando forma de onda…", c.width / 2, c.height / 2);
+            g.fillText(tr("Gerando forma de onda…"), c.width / 2, c.height / 2);
         }
     }
 
@@ -416,6 +425,7 @@
         updatePreview: updatePreview,
         toggle: toggle,
         stopAll: stopAll,
+        relabel: relabel,
         currentFile: function () { return state.file; }
     };
 })();

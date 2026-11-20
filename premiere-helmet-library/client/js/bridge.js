@@ -38,7 +38,7 @@ var HLBridge = (function () {
 
     function evalRaw(script) {
         return new Promise(function (resolve, reject) {
-            if (!cs) { reject(new Error("Fora do Premiere.")); return; }
+            if (!cs) { reject(new Error(tr("Fora do Premiere."))); return; }
             cs.evalScript(script, function (result) { resolve(String(result)); });
         });
     }
@@ -80,10 +80,11 @@ var HLBridge = (function () {
                 log("resposta inválida do ExtendScript (" + name + "): " + raw);
                 // "EvalScript error" = a função não existe no Premiere: o host/index.jsx não carregou
                 throw new Error(/EvalScript error/i.test(raw)
-                    ? "A parte da extensão que roda dentro do Premiere não carregou. Feche o Premiere e reinstale a extensão (instalar.bat)."
-                    : "O Premiere devolveu uma resposta inesperada. Reabra o painel e tente de novo.");
+                    ? tr("A parte da extensão que roda dentro do Premiere não carregou. Feche o Premiere e reinstale a extensão (instalar.bat).")
+                    : tr("O Premiere devolveu uma resposta inesperada. Reabra o painel e tente de novo."));
             }
-            if (!parsed || !parsed.ok) throw new Error((parsed && parsed.error) || "Erro no Premiere.");
+            // o host/index.jsx escreve em português; trMsg traduz (i18n.js)
+            if (!parsed || !parsed.ok) throw new Error(parsed && parsed.error ? trMsg(parsed.error) : tr("Erro no Premiere."));
             return parsed.data;
         });
     }

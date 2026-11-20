@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="11.0" ExtensionBundleId="com.seuestudio.helmetlibrary"
-    ExtensionBundleVersion="1.1.0" ExtensionBundleName="Helmet Library"
+    ExtensionBundleVersion="1.2.0" ExtensionBundleName="Helmet Library"
     xmlns:ExtensionBundleId="http://ns.adobe.com/extension">
     <ExtensionList>
-        <Extension Id="com.seuestudio.helmetlibrary.panel" Version="1.1.0" />
+        <Extension Id="com.seuestudio.helmetlibrary.panel" Version="1.2.0" />
     </ExtensionList>
     <ExecutionEnvironment>
         <HostList>

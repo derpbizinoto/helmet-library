@@ -78,10 +78,16 @@
         onState: function (what, v) { if (what === "volume") { cfg.volume = v; save(); } }
     });
 
+    // menu do painel (os três pontinhos da aba): atalhos úteis
+    function setFlyoutMenu() {
+        var item = function (id, label) { return '<MenuItem Id="' + id + '" Label="' + label.replace(/[&<>"]/g, "") + '"/>'; };
+        cs.setPanelFlyoutMenu("<Menu>" + item("add", tr("Adicionar pasta à biblioteca")) + item("settings", tr("Configurações")) +
+            item("reload", tr("Recarregar painel")) + "</Menu>");
+    }
+
     if (cs) {
         try {
-            // menu do painel: atalhos úteis
-            cs.setPanelFlyoutMenu('<Menu><MenuItem Id="add" Label="Adicionar pasta à biblioteca"/><MenuItem Id="settings" Label="Configurações"/><MenuItem Id="reload" Label="Recarregar painel"/></Menu>');
+            setFlyoutMenu();
             cs.addEventListener("com.adobe.csxs.events.flyoutMenuClicked", function (ev) {
                 var id = ev.data && ev.data.menuId;
                 if (id === "add") app.addLibrary();
@@ -127,20 +133,36 @@
     P.onProblem(function (msg) {
         if (Date.now() - lastPreviewProblem < 60000) return;
         lastPreviewProblem = Date.now();
-        setStatus(msg, "error");
+        setStatus(trMsg(msg), "error");
     });
 
-    if (L.demo) setStatus("Modo de demonstração (fora do Premiere): biblioteca de exemplo, sem acesso ao disco.", "warning", true);
+    // troca de idioma (Configurações › Idioma): o texto fixo do index.html já foi trocado
+    // pelo i18n.js; aqui é refeito o que o código monta. A última mensagem da barra de
+    // baixo fica no idioma em que foi escrita (a não ser o aviso do modo de demonstração).
+    HLI18n.onChange(function () {
+        if (cs) { try { setFlyoutMenu(); } catch (e) { /* versões antigas sem menu */ } }
+        app.renderTree();
+        app.renderCrumbs();
+        state.sig = null;            // força recriar os cards (dicas e contagem)
+        app.loadItems(false);
+        PL.relabel();
+        if (!els.settings.hidden) app.updateSettingsTexts();
+        if (L.demo && /demonstra|demo mode/i.test(els.status.textContent)) setStatus(tr(DEMO_TEXT), "warning", true);
+        else if (!els.status.className.match(/success|warning|error/)) setStatus(app.defaultStatus(), "", true);
+    });
+
+    var DEMO_TEXT = N("Modo de demonstração (fora do Premiere): biblioteca de exemplo, sem acesso ao disco.");
+    if (L.demo) setStatus(tr(DEMO_TEXT), "warning", true);
 
     // config.json danificado: avisa o que foi recuperado e onde ficou o arquivo estragado
     var notice = L.lastConfigNotice && L.lastConfigNotice();
-    if (notice) app.ask("Configurações recuperadas", notice, null, "OK", { noCancel: true });
+    if (notice) app.ask(tr("Configurações recuperadas"), notice, null, "OK", { noCancel: true });
 
     var lastSaveError = 0;
     L.onSaveError(function () {
         if (Date.now() - lastSaveError < 60000) return;
         lastSaveError = Date.now();
-        setStatus("Não foi possível salvar suas configurações (disco cheio ou sem permissão em " + L.appDataDir() + ").", "error");
+        setStatus(tr("Não foi possível salvar suas configurações (disco cheio ou sem permissão em {0}).", L.appDataDir()), "error");
     });
 
     window.addEventListener("beforeunload", function () { L.saveConfig(cfg, true); });

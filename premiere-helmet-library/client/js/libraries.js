@@ -15,19 +15,19 @@
     function pickFolder() {
         if (!window.cep || !window.cep.fs) return null;
         var r = window.cep.fs.showOpenDialogEx ?
-            window.cep.fs.showOpenDialogEx(false, true, "Escolha a pasta da biblioteca", "") :
-            window.cep.fs.showOpenDialog(false, true, "Escolha a pasta da biblioteca", "");
+            window.cep.fs.showOpenDialogEx(false, true, tr("Escolha a pasta da biblioteca"), "") :
+            window.cep.fs.showOpenDialog(false, true, tr("Escolha a pasta da biblioteca"), "");
         if (!r || r.err || !r.data || !r.data.length) return null;
         return r.data[0];
     }
 
     function addLibrary() {
-        if (L.demo) { setStatus("Modo de demonstração: no Premiere abre o seletor de pastas.", "warning"); return; }
+        if (L.demo) { setStatus(tr("Modo de demonstração: no Premiere abre o seletor de pastas."), "warning"); return; }
         var dir = pickFolder();
         if (!dir) return;
         dir = L.path.resolve(dir);
         for (var i = 0; i < cfg.libraries.length; i++) {
-            if (L.samePath(cfg.libraries[i].path, dir)) { setStatus("Esta pasta já está na biblioteca.", "warning"); app.openView({ type: "folder", path: dir }); return; }
+            if (L.samePath(cfg.libraries[i].path, dir)) { setStatus(tr("Esta pasta já está na biblioteca."), "warning"); app.openView({ type: "folder", path: dir }); return; }
         }
         var lib = { id: L.newId(), name: L.path.basename(dir) || dir, path: dir };
         cfg.libraries.push(lib);
@@ -36,11 +36,11 @@
         watchLib(lib);
         app.renderTree();
         app.openView({ type: "folder", path: dir });
-        setStatus("Biblioteca “" + lib.name + "” adicionada. Os previews são gerados conforme você navega.", "success");
+        setStatus(tr("Biblioteca “{0}” adicionada. Os previews são gerados conforme você navega.", lib.name), "success");
     }
 
     function removeLibrary(lib) {
-        app.ask("Remover biblioteca", "Remover “" + lib.name + "” da extensão? Os arquivos no computador não são apagados.", null, "Remover").then(function (ok) {
+        app.ask(tr("Remover biblioteca"), tr("Remover “{0}” da extensão? Os arquivos no computador não são apagados.", lib.name), null, tr("Remover")).then(function (ok) {
             if (!ok) return;
             L.unwatch(lib.path);
             cfg.libraries = cfg.libraries.filter(function (x) { return x.id !== lib.id; });
@@ -51,12 +51,12 @@
                 if (cfg.libraries.length) app.openView({ type: "folder", path: cfg.libraries[0].path });
                 else { app.renderCrumbs(); app.loadItems(true); }
             }
-            setStatus("Biblioteca removida.", "success");
+            setStatus(tr("Biblioteca removida."), "success");
         });
     }
 
     function renameLibrary(lib) {
-        app.ask("Renomear biblioteca", "Nome exibido no painel (a pasta no disco não muda).", lib.name, "Salvar").then(function (name) {
+        app.ask(tr("Renomear biblioteca"), tr("Nome exibido no painel (a pasta no disco não muda)."), lib.name, tr("Salvar")).then(function (name) {
             if (!name || typeof name !== "string") return;
             lib.name = name.trim() || lib.name;
             save();
@@ -98,29 +98,29 @@
 
     // Apaga os previews dessas pastas, depois de confirmar. Só arquivos de preview
     // (nome no formato da extensão) são apagados; a mídia nunca é tocada.
-    // where: "" ou " de “Biblioteca”"
+    // where: "" ou " de “Biblioteca”" (já traduzido)
     function clearPreviews(dirs, where) {
         L.cacheSize(dirs).then(function (size) {
-            if (!size.files) { setStatus("Nenhum preview salvo" + where + ".", "warning"); return; }
-            var text = "Apagar " + size.files.toLocaleString("pt-BR") + " arquivo(s) de preview (" + L.fmtBytes(size.bytes) + ")" + where +
-                "?\nEles são refeitos sozinhos quando você abrir as pastas. Seus vídeos, sons e imagens não são tocados.";
-            return app.ask("Limpar previews", text, null, "Apagar").then(function (ok) {
+            if (!size.files) { setStatus(tr("Nenhum preview salvo{0}.", where), "warning"); return; }
+            var text = tr("Apagar {0} arquivo(s) de preview ({1}){2}?\nEles são refeitos sozinhos quando você abrir as pastas. Seus vídeos, sons e imagens não são tocados.",
+                size.files.toLocaleString(HLI18n.locale()), L.fmtBytes(size.bytes), where);
+            return app.ask(tr("Limpar previews"), text, null, tr("Apagar")).then(function (ok) {
                 if (!ok) return;
                 return L.clearCache(dirs).then(function (n) {
                     P.clearMemo();
                     if (!els.settings.hidden) app.updateCacheInfo();
-                    if (n < size.files) setStatus(n + " de " + size.files + " arquivo(s) de preview apagados" + where + ". Os outros estão em uso ou sem permissão; tente de novo com o Premiere fechado.", "warning");
-                    else setStatus(n + " arquivo(s) de preview apagados" + where + ". Eles são recriados quando você abrir as pastas.", "success");
+                    if (n < size.files) setStatus(tr("{0} de {1} arquivo(s) de preview apagados{2}. Os outros estão em uso ou sem permissão; tente de novo com o Premiere fechado.", n, size.files, where), "warning");
+                    else setStatus(tr("{0} arquivo(s) de preview apagados{1}. Eles são recriados quando você abrir as pastas.", n, where), "success");
                     if (state.view) app.loadItems(false);
                 });
             });
         }).catch(function (err) {
-            setStatus("Não deu para limpar os previews" + where + ": " + L.describeError(err, "folder"), "error");
+            setStatus(tr("Não deu para limpar os previews{0}: {1}", where, trMsg(L.describeError(err, "folder"))), "error");
         });
     }
 
     function clearLibraryCache(lib) {
-        clearPreviews([L.path.join(lib.path, L.CACHE_DIR_NAME)], " de “" + lib.name + "”");
+        clearPreviews([L.path.join(lib.path, L.CACHE_DIR_NAME)], tr(" de “{0}”", lib.name));
     }
 
     els.btnAddLibrary.addEventListener("click", addLibrary);
@@ -130,7 +130,7 @@
     // Confere (sem travar o painel) se a pasta de cada biblioteca ainda existe. Quando uma
     // volta (HD religado, rede de volta), religa o vigia e relê as pastas.
 
-    var MISSING_TEXT = "A pasta desta biblioteca não foi encontrada. Se ela está num HD externo ou na rede, confira se está conectado; se foi movida ou renomeada, remova e adicione de novo.";
+    var MISSING_TEXT = N("A pasta desta biblioteca não foi encontrada. Se ela está num HD externo ou na rede, confira se está conectado; se foi movida ou renomeada, remova e adicione de novo.");
     var checking = null;
 
     function checkLibraries() {

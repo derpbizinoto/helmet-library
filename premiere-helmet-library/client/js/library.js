@@ -171,13 +171,13 @@
         var fromBak = bak.ok ? sanitizeConfig(bak.data) : null;
         if (fromBak) {
             var when = "";
-            try { when = " de " + fmtDate(fs.statSync(backupPath()).mtime); } catch (e) { /* sem data */ }
-            configNotice = "O arquivo de configurações estava danificado e foi recuperado do backup" + when +
-                ". O arquivo danificado ficou guardado em:\n" + kept;
+            try { when = fmtDate(fs.statSync(backupPath()).mtime); } catch (e) { /* sem data */ }
+            configNotice = when
+                ? tr("O arquivo de configurações estava danificado e foi recuperado do backup de {0}. O arquivo danificado ficou guardado em:\n{1}", when, kept)
+                : tr("O arquivo de configurações estava danificado e foi recuperado do backup. O arquivo danificado ficou guardado em:\n{0}", kept);
             return fromBak;
         }
-        configNotice = "O arquivo de configurações estava danificado e não havia backup, então as bibliotecas " +
-            "e os favoritos começaram vazios. O arquivo danificado ficou guardado em:\n" + kept;
+        configNotice = tr("O arquivo de configurações estava danificado e não havia backup, então as bibliotecas e os favoritos começaram vazios. O arquivo danificado ficou guardado em:\n{0}", kept);
         return sanitizeConfig({});
     }
 
@@ -353,22 +353,24 @@
 
     // ---------- mensagens de erro ----------
     // what: "folder" (abrir pasta) | "file" (ler arquivo) | "write" (gravar previews)
+    // Sempre em português (N): a mensagem pode ficar guardada no cache de previews; quem
+    // mostra traduz com trMsg().
 
     var NETWORK_CODES = ["ETIMEDOUT", "EHOSTDOWN", "EHOSTUNREACH", "ENETUNREACH", "ENETDOWN", "ECONNRESET", "EIO", "UNKNOWN"];
 
     function describeError(err, what) {
         var code = err && err.code;
         if (what === "write") {
-            if (code === "EACCES" || code === "EPERM" || code === "EROFS") return "Sem permissão para gravar previews nesta pasta. Use \"Cache do sistema\" nas configurações.";
-            if (code === "ENOSPC") return "Disco cheio: não deu para gravar o preview.";
+            if (code === "EACCES" || code === "EPERM" || code === "EROFS") return N("Sem permissão para gravar previews nesta pasta. Use \"Cache do sistema\" nas configurações.");
+            if (code === "ENOSPC") return N("Disco cheio: não deu para gravar o preview.");
         }
         if (code === "ENOENT" || code === "ENOTDIR") {
-            return what === "file" ? "O arquivo não foi encontrado (foi movido, apagado ou está num disco desconectado)."
-                : "A pasta não foi encontrada. Se ela está num HD externo ou na rede, confira se está conectado.";
+            return what === "file" ? N("O arquivo não foi encontrado (foi movido, apagado ou está num disco desconectado).")
+                : N("A pasta não foi encontrada. Se ela está num HD externo ou na rede, confira se está conectado.");
         }
-        if (code === "EACCES" || code === "EPERM") return what === "file" ? "Sem permissão para abrir este arquivo." : "Sem permissão para abrir esta pasta.";
-        if (code === "EBUSY") return "Em uso por outro programa. Tente de novo daqui a pouco.";
-        if (NETWORK_CODES.indexOf(code) >= 0) return "O disco ou a pasta de rede não respondeu. Confira se está conectado.";
+        if (code === "EACCES" || code === "EPERM") return what === "file" ? N("Sem permissão para abrir este arquivo.") : N("Sem permissão para abrir esta pasta.");
+        if (code === "EBUSY") return N("Em uso por outro programa. Tente de novo daqui a pouco.");
+        if (NETWORK_CODES.indexOf(code) >= 0) return N("O disco ou a pasta de rede não respondeu. Confira se está conectado.");
         return String(err && err.message || err);
     }
 
@@ -416,7 +418,7 @@
     // nada é gravado (nem apagado) através dela.
     function ensureCacheDir(dir) {
         if (exists(dir)) {
-            if (isLinkSync(dir)) throw new Error("a pasta de previews é um atalho para outro lugar; por segurança nada é gravado nela");
+            if (isLinkSync(dir)) throw new Error(N("a pasta de previews é um atalho para outro lugar; por segurança nada é gravado nela"));
             return;
         }
         mkdirp(dir);
@@ -482,7 +484,7 @@
         return new Promise(function (resolve, reject) {
             fs.read(fd, buf, 0, length, position, function (err, n) {
                 if (err) reject(err);
-                else if (n !== length) reject(zipError("arquivo cortado"));
+                else if (n !== length) reject(zipError(N("arquivo cortado")));
                 else resolve(buf);
             });
         });
@@ -500,18 +502,18 @@
         return withFile(file, function (fd) {
             return p(fs.fstat, fd).then(function (st) {
                 var size = st.size;
-                if (size < 22) throw zipError("não é um .zip válido");
+                if (size < 22) throw zipError(N("não é um .zip válido"));
                 var tailLen = Math.min(size, 65557);
                 return readAt(fd, tailLen, size - tailLen).then(function (tail) {
                     var eocd = -1;
                     for (var i = tailLen - 22; i >= 0; i--) {
                         if (tail.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
                     }
-                    if (eocd < 0) throw zipError("não é um .zip válido");
+                    if (eocd < 0) throw zipError(N("não é um .zip válido"));
                     var cdCount = tail.readUInt16LE(eocd + 10);
                     var cdSize = tail.readUInt32LE(eocd + 12);
                     var cdOffset = tail.readUInt32LE(eocd + 16);
-                    if (cdSize > ZIP_LIMITS.directory || cdOffset + cdSize > size) throw zipError("índice do .zip inválido");
+                    if (cdSize > ZIP_LIMITS.directory || cdOffset + cdSize > size) throw zipError(N("índice do .zip inválido"));
                     return readAt(fd, cdSize, cdOffset).then(function (cd) {
                         var entries = [];
                         var pos = 0;
@@ -539,21 +541,21 @@
     // Conteúdo de uma entrada, no máximo maxBytes depois de descompactado.
     function readZipEntry(file, entry, maxBytes) {
         maxBytes = maxBytes || ZIP_LIMITS.video;
-        if (entry.size > maxBytes || entry.compSize > maxBytes) return Promise.reject(zipError("arquivo interno grande demais"));
+        if (entry.size > maxBytes || entry.compSize > maxBytes) return Promise.reject(zipError(N("arquivo interno grande demais")));
         return withFile(file, function (fd) {
             return readAt(fd, 30, entry.offset).then(function (head) {
-                if (head.readUInt32LE(0) !== 0x04034b50) throw zipError("entrada corrompida");
+                if (head.readUInt32LE(0) !== 0x04034b50) throw zipError(N("entrada corrompida"));
                 var start = entry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28);
                 return readAt(fd, entry.compSize, start);
             });
         }).then(function (data) {
             if (entry.method === 0) return data;
-            if (entry.method !== 8) throw zipError("compressão não suportada (" + entry.method + ")");
+            if (entry.method !== 8) throw zipError(N("compressão não suportada ({0})", entry.method));
             // maxOutputLength: uma "bomba de descompressão" para no limite em vez de encher a memória
             return new Promise(function (resolve, reject) {
                 zlib.inflateRaw(data, { maxOutputLength: maxBytes }, function (err, out) {
-                    if (err) reject(err.code === "ERR_BUFFER_TOO_LARGE" ? zipError("arquivo interno grande demais") : zipError("entrada corrompida"));
-                    else if (out.length > maxBytes) reject(zipError("arquivo interno grande demais"));
+                    if (err) reject(zipError(N(err.code === "ERR_BUFFER_TOO_LARGE" ? "arquivo interno grande demais" : "entrada corrompida")));
+                    else if (out.length > maxBytes) reject(zipError(N("arquivo interno grande demais")));
                     else resolve(out);
                 });
             });
