@@ -8,7 +8,7 @@
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.2";
+var HL_HOST_VERSION = "1.3.3";
 
 // ---------- respostas ----------
 

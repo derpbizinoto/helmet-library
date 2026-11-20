@@ -1,12 +1,18 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.2
+# Roteiro de testes no Premiere — Helmet Library 1.3.3
 
-> **Reteste da 1.3.2.** Instale a 1.3.2 (`instalar.bat`) e confira só o arrastar:
+> **Reteste da 1.3.3.** Instale a 1.3.3 (`instalar.bat`) e confira só isto:
 >
-> - [ ] **R1** Arraste um **vídeo** que ainda não está no projeto para a timeline: entra com imagem e som no primeiro arrasto, e o painel **Helmet Library volta para a frente** sozinho (o Project pode aparecer por um instante). Anote se ele não voltar.
-> - [ ] **R2** Arraste um **áudio** e uma **imagem** para a timeline: entram certo e o painel Project **não** abre (eles não são mais pré-importados).
-> - [ ] **R3** Arraste um vídeo que ainda não está no projeto para o **painel Project**: em até uns 5 segundos fica **uma cópia só** (a que você soltou). A bin Helmet Library não fica vazia sobrando, e não aparece nenhuma bin "Helmet Library - removendo…".
-> - [ ] **R4** Arraste o mesmo vídeo para a timeline e depois para o Project: o clipe da timeline continua lá, sem ficar offline.
-> - [ ] **R5** Arraste vários vídeos selecionados juntos para a timeline: entram todos com imagem e som.
+> - [ ] **R1b** Arraste um **vídeo** que ainda não está no projeto para a timeline e solte. Em até 1 segundo depois de soltar, o painel **Helmet Library volta para a frente** sozinho. Anote se: (a) não volta; (b) volta, mas só depois de um tempo grande; (c) o painel recarrega (perde a pasta aberta ou a seleção).
+> - [ ] **R2b** Repita R3 (soltar no Project) e R5 (vários vídeos): continuam funcionando.
+> - Se o R1b falhar, o Premiere não deixa a extensão voltar para a frente. Saída sem código: encaixe o Helmet Library num grupo de painéis diferente do Project (arraste a aba dele para outro canto da janela), assim os dois ficam visíveis.
+
+> **Reteste da 1.3.2.** Resultado: R2 a R5 passaram; no R1 o painel Project continuou abrindo.
+>
+> - [ ] **R1** Arraste um **vídeo** que ainda não está no projeto para a timeline: entra com imagem e som no primeiro arrasto, e o painel **Helmet Library volta para a frente** sozinho (o Project pode aparecer por um instante). Anote se ele não voltar. ***- O painel Project continua abrindo igual antes.***
+> - [x] **R2** Arraste um **áudio** e uma **imagem** para a timeline: entram certo e o painel Project **não** abre (eles não são mais pré-importados).
+> - [x] **R3** Arraste um vídeo que ainda não está no projeto para o **painel Project**: em até uns 5 segundos fica **uma cópia só** (a que você soltou). A bin Helmet Library não fica vazia sobrando, e não aparece nenhuma bin "Helmet Library - removendo…".
+> - [x] **R4** Arraste o mesmo vídeo para a timeline e depois para o Project: o clipe da timeline continua lá, sem ficar offline.
+> - [x] **R5** Arraste vários vídeos selecionados juntos para a timeline: entram todos com imagem e som.
 > - Já sabido: arrastar MOGRT continua não funcionando (use **Adicionar**); arrastar e desistir deixa o vídeo na bin Helmet Library (combinado deixar assim por enquanto).
 >
 > **Resultado do reteste da 1.3.1:** 2.5, 8.2, seção 5, 8.5 e 2.13 passaram. Vídeo arrastado entra com imagem e som já no primeiro arrasto. Problemas que a 1.3.2 corrige: o painel Project abria sozinho ao arrastar, e arrastar para o Project deixava o arquivo duplicado. MOGRT continua sem entrar arrastando.
@@ -36,14 +42,14 @@ Marque cada item com `x` quando passar. Se algo falhar, anote o número do item,
      - `🔥 explosão 💥.mp4` (emoji)
      - `   espaços   no   meio.png` (vários espaços)
      - `nome.com.pontos.mp3`
-2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.2.
+2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.3.
 3. Abra o Premiere, crie um projeto de teste e uma sequência.
 
 ## 1. Instalação
 
-- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.2**, sem erro.
+- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.3**, sem erro.
 - [x] 1.2 **Janela › Extensões › Helmet Library** abre o painel, com o visual de sempre.
-- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.2**.
+- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.3**.
 - [x] 1.4 O painel aparece **uma vez só** no menu de extensões (sem cópia duplicada).
 - [x] 1.5 As bibliotecas e favoritos que você já tinha continuam lá.
 

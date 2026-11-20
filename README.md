@@ -4,7 +4,7 @@ Extensão CEP para o Adobe Premiere Pro que transforma pastas do computador em b
 
 Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (Violet Terminal com degradês sutis), Geo em caixa alta no nome e Roboto no resto.
 
-Versão atual: **1.3.2** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
+Versão atual: **1.3.3** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
 
 ## Instalação
 
@@ -122,7 +122,7 @@ Add Keys.reg               libera extensões não assinadas (alternativa manual)
 empacotar.ps1              gera o .zip para distribuir
 tests/                     testes automáticos (Node)
 TESTES.md                  roteiro de testes no Premiere
-AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1 e 1.3.2
+AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1 a 1.3.3
 ```
 
 ## Para quem mexe no código

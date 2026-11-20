@@ -1,5 +1,9 @@
 # Changelog — Helmet Library
 
+## 1.3.3 — painel de volta depois de soltar
+
+- O pedido para o Helmet Library voltar para a frente agora também é feito **depois de soltar** o vídeo (300 ms e 1,2 s depois). Na 1.3.2 ele só era feito durante o arrasto, e o Premiere ignorava.
+
 ## 1.3.2 — ajustes do arrastar
 
 - Só **vídeos** são importados ao começar a arrastar (áudio e imagem já entravam certo). Assim o painel Project não abre à toa.

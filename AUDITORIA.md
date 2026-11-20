@@ -352,3 +352,11 @@ Dois efeitos colaterais da pré-importação, corrigidos na 1.3.2:
 
 Pedido do usuário deixado para depois: tirar o vídeo do projeto quando o arrasto é cancelado.
 MOGRT continua sem entrar arrastando (o Premiere não aceita); o caminho é o botão Adicionar.
+
+### Reteste da 1.3.2 e tentativa da 1.3.3
+
+R2 a R5 passaram. R1 falhou: o painel Project continua vindo para a frente. Pedir o painel de volta
+(`requestOpenExtension`) durante o arrasto não teve efeito. A 1.3.3 repete o pedido 300 ms e 1,2 s
+depois de soltar. O CEP não tem uma função oficial para "focar" um painel; se isso também não
+funcionar, a saída é de layout (Helmet Library num grupo de painéis diferente do Project). A troca de
+painel vem do próprio import do Premiere (`importFiles` traz o Project para a frente), não do CEP.
