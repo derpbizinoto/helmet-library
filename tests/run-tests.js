@@ -3,7 +3,7 @@
 //
 // Cobre o que não depende do Premiere: configuração (config.json), caminhos,
 // leitor de .mogrt, cache de previews e a ponte painel -> host num Premiere simulado.
-// Não substitui o roteiro de testes manuais no Premiere (TESTES.md).
+// Não substitui o teste no Premiere de verdade.
 
 "use strict";
 
@@ -204,7 +204,7 @@ test("pastas: atalho para dentro da biblioteca é seguido; para fora, ignorado",
 });
 
 // O Node dentro do Premiere (NW.js 0.63) mostrou uma junção para C:\Windows como pasta comum
-// (teste 8.2 da 1.3.0). Aqui o fs "esquece" de marcar atalhos, como lá.
+// (visto no teste no Premiere). Aqui o fs "esquece" de marcar atalhos, como lá.
 function loadLibraryBlindToLinks(appData) {
     const realFs = require("fs");
     const blindFs = Object.assign({}, realFs, {
@@ -625,7 +625,7 @@ function copiesOf(bin, file, out) {
     return out;
 }
 
-// Arrastar MOGRT (1.3.4): imagem provisória trocada pelo MOGRT depois de soltar.
+// Arrastar MOGRT: imagem provisória trocada pelo MOGRT depois de soltar.
 test("arrastar: imagem provisória com o nome do arquivo, fora do cache de previews", () => {
     const appData = tmpDir("cfg");
     const L = loadLibrary(appData);
@@ -808,7 +808,7 @@ test("arrastar: solto na timeline sem sequência desfaz a sequência nova e avis
     assert.ok(noTempBins(host), "a bin do impedir-refazer não fica");
 });
 
-// D6 (1.3.7 falhou no Premiere): o nome da sequência pode vir sem a extensão; o tamanho 192×108 também conta.
+// Timeline vazia: no Premiere o nome da sequência pode vir sem a extensão; o tamanho 192×108 também conta.
 async function dropOnEmptyTimeline(seqName, w, h) {
     const host = loadHost({ sequence: null });
     const bridge = loadBridge(host);

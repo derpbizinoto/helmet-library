@@ -59,10 +59,11 @@
         });
     }
 
-    // ---------- arrastar MOGRT com imagem provisória (1.3.4; passos do Composer desde a 1.3.7) ----------
-    // O Premiere não aceita .mogrt arrastado de um painel (teste 2.11). O arrasto leva, no lugar do
-    // MOGRT, uma imagem provisória com o nome dele (library.js); imagem entra arrastando sem problema.
-    // Logo ao soltar (o Composer também confere na hora) e de novo depois, se ainda não achou:
+    // ---------- arrastar MOGRT com imagem provisória ----------
+    // O Premiere não aceita .mogrt arrastado de um painel. O arrasto leva, no lugar do MOGRT, uma
+    // imagem provisória com o nome dele (library.js); imagem entra arrastando sem problema. São os
+    // passos do Animation Composer (detalhes em AUDITORIA.md). Logo ao soltar e de novo depois, se
+    // ainda não achou:
     //   1. o host acha as imagens na sequência ativa, anota onde ficaram e desfaz a soltura
     //      (hl_takeDrop; detalhes em host/index.jsx);
     //   2. coloca cada MOGRT nesse lugar, um depois do outro se eram vários em fila, e seleciona.
@@ -70,13 +71,13 @@
     // não é importado (o Premiere não aceita MOGRT no Project e abre um aviso).
     // Solta no Source Monitor ou na timeline sem sequência: sai e a barra de baixo explica.
     // Arrasto cancelado: não há imagem em lugar nenhum e nada acontece.
-    // Vídeo, áudio e imagem vão direto (vídeo do jeito do Animation Composer: ver grid.js).
+    // O arrasto com MOGRT leva só MOGRTs (grid.js). Vídeo, áudio e imagem vão direto.
 
     function dragPath(f) {
         if (!inCEP || f.kind !== "mogrt") return null;
         try { return L.dragPlaceholder(f.path); } catch (e) {
             HL.log("imagem provisória falhou", f.path, e);
-            return null;   // arrasta o arquivo como antes
+            return null;   // sem imagem provisória: ver grid.js
         }
     }
 
@@ -90,9 +91,8 @@
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
     // Fase 1: tira as imagens provisórias, conferindo algumas vezes (o Premiere pode demorar a colocar).
-    // Desfazer a soltura só uma vez por arrasto e só se o arrasto era só de MOGRTs (com outros
-    // arquivos juntos, desfazer tiraria esses arquivos também): nos outros casos tira clipe por clipe.
-    function takePlaceholders(swaps, onlyMogrts) {
+    // A soltura é desfeita no máximo uma vez por arrasto; depois disso o host tira clipe por clipe.
+    function takePlaceholders(swaps) {
         var n = 0, undone = false;
         function round() {
             var last = n === SWAP_CHECKS_MS.length - 1;
@@ -100,7 +100,7 @@
             if (!todo.length) return Promise.resolve();
             return wait(SWAP_CHECKS_MS[n] - (n ? SWAP_CHECKS_MS[n - 1] : 0)).then(function () {
                 var list = todo.map(function (s) { return s.placeholder; }).join("\n");
-                return HLBridge.call("hl_takeDrop", [list, last, onlyMogrts && !undone]).then(function (r) {
+                return HLBridge.call("hl_takeDrop", [list, last, !undone]).then(function (r) {
                     if (r.undone) undone = true;
                     todo.forEach(function (s, i) {
                         var sp = r.spots[i] || {};
@@ -149,8 +149,9 @@
     }
 
     // leftOut: quantos arquivos da seleção ficaram fora do arrasto (MOGRT não vai junto com outros).
-    function swapAfterDrop(swaps, onlyMogrts, leftOut) {
-        takePlaceholders(swaps, onlyMogrts).then(function () { return placeItems(swaps); }).then(function (results) {
+    function afterDrag(swaps, leftOut) {
+        if (!inCEP || !swaps || !swaps.length) return;
+        takePlaceholders(swaps).then(function () { return placeItems(swaps); }).then(function (results) {
             var errors = results.filter(function (r) { return r.error; }),
                 warnings = results.filter(function (r) { return r.warning; }),
                 oks = results.filter(function (r) { return r.ok; });
@@ -161,12 +162,6 @@
             else if (oks.length) setStatus(oks.length + " arquivos adicionados." + left, left ? "warning" : "success");
             else if (left) setStatus(left.slice(1), "warning");
         });
-    }
-
-    // files: os arquivos que foram no arrasto (para saber se eram só MOGRTs com imagem provisória).
-    function afterDrag(swaps, files, leftOut) {
-        if (!inCEP || !swaps || !swaps.length) return;
-        swapAfterDrop(swaps, !!files && files.length === swaps.length, leftOut || 0);
     }
 
     function flashTile(f) {

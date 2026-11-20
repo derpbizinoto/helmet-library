@@ -58,12 +58,13 @@
         return path.join(base, APP_NAME, "cache");
     }
 
-    // ---------- arrastar MOGRT (1.3.4) ----------
+    // ---------- arrastar MOGRT ----------
     // O Premiere não aceita .mogrt arrastado de um painel. Arrasta-se no lugar uma imagem provisória
     // com o nome do arquivo (imagem entra arrastando sem problema); ao soltar, o host troca a imagem
     // pelo MOGRT na mesma posição. Fica em
     // %LOCALAPPDATA%\Helmet Library\arrastar (fora do cache de previews, então "Limpar previews" não
-    // mexe nela). Uma pasta por arquivo, para o nome ficar igual.
+    // mexe nela). Uma pasta por arquivo, para o nome ficar igual. Tamanho 192×108: o host reconhece
+    // esse tamanho (HL_PLACEHOLDER_W/H em host/index.jsx).
     var PLACEHOLDER_PNG = "iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA0UlEQVR42u3SQREAAAzCMPzg3x8itmciodcUDiIBBsJAGAgDgYEwEAbCQGAgDISBMBAYCANhIAwEBsJAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMBAbCQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA/Fpr4vTWZGX4dwAAAAASUVORK5CYII=";
 
     function dragPlaceholderDir() { return path.join(path.dirname(systemCacheDir()), "arrastar"); }
@@ -248,7 +249,7 @@
     // seguidos se o destino real ficar DENTRO da mesma biblioteca (root); os que apontam
     // para fora são ignorados. Resolve { st, link, real } ou null (ignorar).
     // Toda PASTA tem o lugar real conferido, não só as que o sistema diz que são atalho:
-    // o Node que roda dentro do Premiere não marcou uma junção como atalho (teste 8.2 da 1.3.0).
+    // o Node que roda dentro do Premiere não marcou uma junção como atalho (visto no teste no Premiere).
     function inspect(full, root) {
         return p(fs.lstat, full).then(function (lst) {
             var isLink = lst.isSymbolicLink();

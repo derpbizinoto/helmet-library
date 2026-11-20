@@ -90,7 +90,7 @@
             });
         } catch (e) { /* versões antigas sem menu */ }
         try {
-            // Esc: sem isto o Premiere fica com a tecla e o painel nunca a recebe (teste 2.5 da 1.3.0).
+            // Esc: sem isto o Premiere fica com a tecla e o painel nunca a recebe (visto no teste no Premiere).
             // Código da tecla: Windows 27 (VK_ESCAPE), Mac 53.
             cs.registerKeyEventsInterest(JSON.stringify([{ keyCode: process.platform === "darwin" ? 53 : 27 }]));
         } catch (e) { HL.log("registerKeyEventsInterest falhou", e); }

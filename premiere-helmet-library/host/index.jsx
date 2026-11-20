@@ -8,7 +8,7 @@
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.8";
+var HL_HOST_VERSION = "1.1.0";
 
 // ---------- respostas ----------
 
@@ -112,7 +112,7 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
 // O painel arrasta uma imagem provisória (placeholder) no lugar do MOGRT: o Premiere não aceita
 // .mogrt arrastado de um painel. Depois de soltar, o painel chama hl_takeDrop com as imagens do
 // arrasto e, em seguida, hl_placeMogrt para colocar cada MOGRT no lugar da imagem dele.
-// 1.3.7: mesma sequência de passos do Animation Composer (jsx/mh-browser-ppro.jsx, dropMogrt):
+// Mesma sequência de passos do Animation Composer (jsx/mh-browser-ppro.jsx, dropMogrt):
 //   1. imagem aberta no Source Monitor → fecha e avisa;
 //   2. timeline sem sequência (o Premiere criou uma sequência nova com a imagem) → desfaz e avisa;
 //   3. imagem na timeline → anota onde ela ficou e DESFAZ a soltura (Ctrl+Z do próprio Premiere),
@@ -124,7 +124,8 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
 // placeholders: caminhos das imagens provisórias, um por linha.
 // lastTry: última conferência — só nela a imagem que está só no projeto conta como solta no Project
 //   (antes disso pode ser o Premiere ainda colocando na timeline).
-// useUndo: true = pode desfazer a soltura (arrasto só de MOGRTs e ainda não desfeito neste arrasto).
+// useUndo: true = pode desfazer a soltura (ainda não desfeita neste arrasto); false = tira clipe
+//   por clipe.
 // Devolve { spots: [ { found, track, ticks, seconds, end } | { found: 0, inProject } ] (na ordem
 // das imagens), undone, sourceMonitor, newSequence }.
 function hl_takeDrop(placeholders, lastTry, useUndo) {
@@ -236,9 +237,8 @@ function hl_baseName(n) {
 }
 
 // Sequência criada pelo Premiere ao soltar na timeline vazia: só tem as imagens e tem o nome de
-// uma delas (a conferência do Composer) ou o tamanho da imagem provisória.
-// 1.3.8: no teste D6 o nome exato não bateu (extensão), então o nome é comparado sem extensão e o
-// tamanho de quadro 192×108 também conta.
+// uma delas ou o tamanho da imagem provisória. O Composer compara o nome exato, mas no Premiere 26
+// o nome não bateu (extensão), então aqui o nome é comparado sem extensão e o tamanho também conta.
 function hl_isPlaceholderSequence(seq, wanted) {
     var onlyOurs = true, named = false, total = 0;
     var seqName = "";
