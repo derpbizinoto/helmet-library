@@ -87,9 +87,13 @@
     }
 
     // Importar faz o Premiere trazer o painel Project para a frente; pede o Helmet Library de volta.
+    // No teste da 1.3.2, pedir só durante o arrasto não adiantou (o Premiere parece ignorar
+    // enquanto o arrasto não termina); por isso a 1.3.3 pede de novo depois de soltar.
     function bringPanelBack() {
         try { cs.requestOpenExtension(cs.getExtensionID(), ""); } catch (e) { HL.log("requestOpenExtension falhou", e); }
+        try { window.focus(); } catch (e2) { /* ignora */ }
     }
+    var PANEL_BACK_AFTER_DROP_MS = [300, 1200];
 
     // Depois de soltar: se o vídeo foi solto no painel Project, o Premiere importa uma cópia própria
     // e a pré-importada fica sobrando. O host remove a pré-importada só se ela foi criada por este
@@ -98,9 +102,11 @@
     var DUPLICATE_CHECKS_MS = [1500, 5000];
     function afterDrag(files) {
         if (!inCEP) return;
+        var pendings = [];
         files.forEach(function (f) {
             var pending = preImports[f.path];
             if (!pending) return;
+            pendings.push(pending);
             pending.then(function (data) {
                 if (!data || data.reused || !data.nodeId) { delete preImports[f.path]; return; }
                 var n = 0;
@@ -120,6 +126,11 @@
                 }
                 check();
             });
+        });
+        // algum vídeo foi importado agora por este arrasto: pede o painel de volta depois de soltar
+        Promise.all(pendings).then(function (all) {
+            if (!all.some(function (d) { return d && d.reused === false; })) return;
+            PANEL_BACK_AFTER_DROP_MS.forEach(function (ms) { setTimeout(bringPanelBack, ms); });
         });
     }
 
