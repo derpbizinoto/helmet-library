@@ -474,6 +474,7 @@
         dt.setData("text/uri-list", files.map(function (f) { return L.toFileUrl(f.path); }).join("\r\n"));
         dt.setData("text/plain", files.map(function (f) { return f.path; }).join("\n"));
         try { dt.setDragImage(ghostFor(files), 14, 14); } catch (err) { /* usa a imagem padrão */ }
+        app.preImport(files);   // vídeo de fora do projeto entrava só com o áudio (testes 2.8 e outros da 1.3.0)
         state.dragging = { files: files, el: el };
         el.classList.add("dragging");
         setStatus("Solte na timeline ou no painel Project" + (files.length > 1 ? " (" + files.length + " arquivos)" : "") + ".", "", true);
