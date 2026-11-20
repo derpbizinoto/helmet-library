@@ -1,4 +1,4 @@
-# Auditoria — Helmet Library 1.2.3
+# Auditoria — Helmet Library 1.0.0
 
 Data: 20/11/2026 · Referência: Premiere Pro 26.x no Windows · Fase 1 (somente leitura).
 Nenhum arquivo da extensão foi alterado. Só foram feitos: `git init`, o commit do
@@ -230,7 +230,8 @@ Nenhum **Crítico** encontrado.
   essas pastas — nesse caso o melhor é adicionar cada uma como biblioteca.
 - **D5 — Áudio muito grande no player (R5).** Sugestão: acima de 300 MB tocar pelo player
   simples, sem Pitch/Reverse nesse arquivo (hoje pode derrubar o painel).
-- **D6 — Versão.** O painel está na 1.2.3. Sugestão: sair como **1.3.0**.
+- **D6 — Versão.** Decidido no fim: a versão de antes da limpeza é a **1.0.0** (a primeira) e a
+  final é a **1.1.0**.
 
 ---
 
@@ -249,10 +250,10 @@ Nenhum **Crítico** encontrado.
 | 9 | Robustez e desempenho: previews em pasta só leitura, índice da busca, leituras assíncronas, HD/rede desconectados, áudio grande | R1–R5, D5 |
 | 10 | Limpeza: `config.js`, dividir `main.js`, duplicações, código morto, logger | L1–L5 |
 | 11 | Mensagens de erro claras | L6 |
-| 12 | Fase final: README, CHANGELOG, TESTES.md (roteiro manual), versão (D6), situação final neste arquivo | L12, L14 |
+| 12 | Fase final: README, CHANGELOG, roteiro de testes no Premiere, versão (D6), situação final neste arquivo | L12, L14 |
 
 Os testes automáticos (L14) entram junto de cada etapa a partir da 3. O que depende do
-Premiere de verdade vai para o `TESTES.md`, e **você precisará testar no Premiere**, porque
+Premiere de verdade vai para um roteiro de testes manuais, e **você precisará testar no Premiere**, porque
 eu não tenho como abri-lo.
 
 **Fase 1 encerrada. Aguardando sua aprovação — da lista de funções (seção 2), das decisões
@@ -260,12 +261,12 @@ D1 a D6 e do plano — antes de alterar qualquer coisa.**
 
 ---
 
-## 7. Situação final — versão 1.3.0
+## 7. Situação final — versão 1.1.0
 
-Data: 20/11/2026 · Branch `limpeza-seguranca` (ainda **não** juntada à `main`) · 12 etapas,
-um commit cada (`3cb67da` a este). Testes automáticos: **36 de 36** passando
-(`node tests/run-tests.js`). Pacote: `empacotar.ps1` gera `dist\HelmetLibrary-1.3.0.zip`
-sem `.debug`, certificados, testes nem auditoria.
+Data: 20/11/2026 · Juntada à `main` · 12 etapas, um commit cada, mais os ajustes dos testes no
+Premiere (seção 8). Testes automáticos: **52 de 52** passando (`node tests/run-tests.js`).
+Pacote: `empacotar.ps1` gera `dist\HelmetLibrary-1.1.0.zip` sem `.debug`, certificados, testes
+nem auditoria.
 
 ### O que foi resolvido
 
@@ -300,7 +301,7 @@ sem `.debug`, certificados, testes nem auditoria.
 | L7–L12, L14, L15 | Resolvidos | etapas 1, 2, 8, 12 |
 | L13 ID `com.seuestudio…` | **Não mudado** de propósito (mudaria a extensão para o Premiere) | — |
 | D1 | `como instalar.txt` removido; `Add Keys.reg` e `demo.js` mantidos | etapa 1 |
-| D6 | Versão 1.3.0 nos quatro lugares (conferido pelo `empacotar.ps1`) | etapa 12 |
+| D6 | Versão 1.1.0 nos quatro lugares (conferido pelo `empacotar.ps1`) | etapa 12 |
 
 ### P1 — problema antigo encontrado nos testes (mantido de propósito)
 
@@ -310,7 +311,7 @@ havendo espaço. Exemplo: sequência só com V1/A1, agulha parada, adicionar doi
 segundo cria a A2) e depois um vídeo → a extensão cria V2/A3, procura o par V2/A2 (A2
 ocupada) e diz "Não há trilha livre na posição da agulha".
 
-Já era assim na 1.2.3; como a regra era não mudar comportamento, ficou igual e há um teste
+Já era assim na 1.0.0; como a regra era não mudar comportamento, ficou igual e há um teste
 que documenta isso (`host: vídeo usa V e A livres no mesmo número de trilha`). **Correção
 sugerida para uma próxima versão:** depois de criar trilhas, procurar de novo o primeiro
 número em que V **e** A estejam livres e, se não houver, criar só o que falta (V ou A) até
@@ -318,119 +319,51 @@ os dois coincidirem.
 
 ### Pendências
 
-1. **Testar no Premiere** com o `TESTES.md` (eu não tenho como abrir o Premiere).
-2. **D2 / M7 — assinatura:** gerar certificado, assinar o `.zxp` e então tirar o
+1. **D2 / M7 — assinatura:** gerar certificado, assinar o `.zxp` e então tirar o
    `PlayerDebugMode` do instalador (o certificado nunca vai para o git: o `.gitignore` já cobre).
-3. **Juntar a branch** `limpeza-seguranca` na `main` depois dos testes.
-4. Melhorias futuras registradas: P1, R6, R7.
+2. Não testados no Premiere por falta de material: busca com mais de 20.000 arquivos (opcional),
+   biblioteca em HD externo desconectado e em pasta de rede desconectada. Os testes automáticos
+   cobrem as duas últimas situações.
+3. Melhorias futuras registradas: P1, R6, R7 e busca em todas as bibliotecas de uma vez.
 
-## 8. Testes no Premiere da 1.3.0 e correções da 1.3.1
+## 8. Testes no Premiere e ajustes da 1.1.0
 
-Resultado do `TESTES.md` na 1.3.0: quase tudo passou. O que falhou:
+O roteiro de testes no Premiere foi feito em várias rodadas, até tudo passar (o roteiro foi
+apagado depois). O que os testes mostraram e como ficou:
 
-| Item | O que aconteceu | Causa | 1.3.1 |
-|---|---|---|---|
-| 8.2 | Junção para `C:\Windows` aparecia no painel | O Node do Premiere (NW.js 0.63) não diz que uma junção é atalho (`isSymbolicLink` falso) | Toda pasta tem o caminho real (`realpath`) e o destino do link (`readlink`) conferidos; teste novo simula esse Node |
-| 2.5 | Esc não fechava o preview | O Premiere fica com a tecla (já era assim na 1.2.3) | `registerKeyEventsInterest` para o Esc |
-| 2.8, 2.11, 3.4, 4.3 | Vídeo arrastado entrava só com áudio; no segundo arrasto dava certo | O Premiere só monta vídeo + áudio de arquivo que já está no projeto (já era assim na 1.2.3) | Pré-importação na bin ao começar a arrastar (mudança de comportamento aprovada). MOGRT fica de fora |
-| 2.13 | Não dava para buscar fora de uma pasta | Funciona como planejado | README explica: clicar no nome da biblioteca busca nela toda |
-| 5.x, 8.5 | Não testados (faltavam arquivos) | Comando da seção 5 dependia de um `modelo.wav` | Arquivos criados em `E:\Teste Helmet`; comando corrigido |
-| 6.4 | "Nada aconteceu" | Instrução pouco clara: era preciso estragar o `config.json` de novo | Texto corrigido |
-| 7.5, 7.6 | Não testados | Sem HD externo / pasta de rede | Pendente |
-
-**Ideia para o futuro (recurso novo, não feito):** busca em todas as bibliotecas de uma vez.
-
-### Reteste da 1.3.1 e ajustes da 1.3.2
-
-Passaram 2.5, 8.2, seção 5, 8.5 e 2.13; o vídeo arrastado entra com imagem e som no primeiro arrasto.
-Dois efeitos colaterais da pré-importação, corrigidos na 1.3.2:
-
-| Problema | Causa | 1.3.2 |
+| O que aconteceu | Causa | Como ficou |
 |---|---|---|
-| O painel Project abria sozinho ao arrastar | Todo import faz o Premiere trazer o Project para a frente | Só vídeo é pré-importado; depois o painel pede para voltar à frente (`requestOpenExtension`) |
-| Arrastar para o Project deixava o arquivo duplicado | Ao soltar no Project o Premiere importa uma cópia própria | `hl_dropDuplicate`: 1,5 s e 5 s depois de soltar, remove a cópia pré-importada se ela foi criada por esse arrasto, se há outra cópia e se não está em nenhuma sequência (o script do Premiere não tem "apagar item": move para uma bin temporária e apaga a bin) |
+| Junção para `C:\Windows` aparecia no painel | O Node do Premiere (NW.js 0.63) não diz que uma junção é atalho (`isSymbolicLink` falso) | Toda pasta tem o caminho real (`realpath`) e o destino do link (`readlink`) conferidos; teste automático simula esse Node |
+| Esc não fechava o preview | O Premiere fica com a tecla (já era assim na 1.0.0) | `registerKeyEventsInterest` para o Esc |
+| Não dava para buscar fora de uma pasta | Funciona como planejado | README explica: clicar no nome da biblioteca busca nela toda |
+| Vídeo arrastado entrava só com áudio; MOGRT não entrava arrastando | Ver abaixo | Arrastar igual ao Animation Composer |
 
-Pedido do usuário deixado para depois: tirar o vídeo do projeto quando o arrasto é cancelado.
-MOGRT continua sem entrar arrastando (o Premiere não aceita); o caminho é o botão Adicionar.
+### Arrastar: o caminho até o método do Animation Composer
 
-### Reteste da 1.3.2 e tentativa da 1.3.3
+Tentativas que **não** deram certo, para não repetir:
+- **Importar o vídeo ao começar a arrastar** resolvia o "só áudio", mas todo `importFiles` faz o
+  Premiere trazer o painel **Project** para a frente, e soltar no Project deixava o arquivo
+  duplicado. Pedir o painel de volta (`requestOpenExtension`), durante ou depois do arrasto, não
+  teve efeito: o CEP não tem uma função oficial para "focar" um painel.
+- **Arrastar o vídeo como imagem provisória** e trocar depois de soltar funcionou, mas a troca
+  também usava `importFiles`, então o Project continuava vindo para a frente.
 
-R2 a R5 passaram. R1 falhou: o painel Project continua vindo para a frente. Pedir o painel de volta
-(`requestOpenExtension`) durante o arrasto não teve efeito. A 1.3.3 repete o pedido 300 ms e 1,2 s
-depois de soltar. O CEP não tem uma função oficial para "focar" um painel; se isso também não
-funcionar, a saída é de layout (Helmet Library num grupo de painéis diferente do Project). A troca de
-painel vem do próprio import do Premiere (`importFiles` traz o Project para a frente), não do CEP.
+**Vídeo — como o Composer faz e como ficou:** o painel do Composer
+(`com.misterhorse.PremiereComposer`, `client/dist/browser.bundle.js` + `jsx/mh-browser-ppro.jsx`)
+pede ao ExtendScript os "arquivos de pré-visualização" do item; para vídeo comum a resposta é o
+**próprio caminho do arquivo**. No `dragstart` ele só faz
+`setData("com.adobe.cep.dnd.file.N", caminho)` (sem `effectAllowed`, sem `text/uri-list` nem
+`text/plain`) e no `dragend` não faz nada: quem importa e coloca é o Premiere. O Helmet Library
+faz exatamente isso para qualquer arrasto que tenha vídeo. Áudio e imagem continuam com os três
+formatos e `effectAllowed = "all"`, como na 1.0.0.
 
-### 1.3.4 — arrastar MOGRT com imagem provisória
-
-O Premiere recusa `.mogrt` arrastado de um painel CEP (teste 2.11). O Animation Composer (Mister Horse)
-contorna isso arrastando um arquivo de pré-visualização e trocando pelo item real depois de soltar;
-ele também instala plugins nativos (`.prm`), que o Helmet Library não tem. A 1.3.4 faz a troca só com
-ExtendScript: `L.dragPlaceholder` cria um PNG cinza com o nome do MOGRT; `hl_swapPlaceholder` (0,7 s,
-2 s e 5 s depois de soltar) acha os clipes desse PNG na sequência ativa, tira cada um (`remove`, conferido
-depois porque o retorno varia), coloca o MOGRT com `importMGT` no mesmo tempo e trilha e apaga o PNG do
-projeto se ele não estiver em nenhuma sequência (sem apagar bins, que podem ser do usuário). Se na
-última conferência o PNG só estiver no projeto, foi solto no Project: vira "só no projeto".
-Risco conhecido: se o `importMGT` falhar depois de tirar a imagem, o lugar fica vazio e a barra de
-baixo mostra o erro (o botão Adicionar continua funcionando).
-
-### 1.3.5 — vídeo com imagem provisória; fim da pré-importação
-
-Reteste da 1.3.4: MOGRT arrastando funcionou (M1, M2, M3, M5, M6). Problemas: MOGRT solto no Project
-fazia o `importFiles` abrir o aviso do Premiere ("Motion Graphics Templates cannot be imported into the
-Project panel"), e o painel Project continuava vindo para a frente com vídeo (o `requestOpenExtension`
-da 1.3.3 não teve efeito).
-
-A 1.3.5 aplica ao vídeo o esquema do MOGRT e tira a pré-importação (com ela saem `hl_dropDuplicate` e o
-pedido de painel de volta). A troca virou duas funções:
-- `hl_takePlaceholder(imagem, lastTry)`: acha os clipes da imagem na sequência ativa, tira (timeline e
-  projeto) e devolve trilha, ticks, segundos e fim. Só no projeto na última conferência = solto no Project.
-- `hl_placeAt(arquivo, tipo, bin, sub, trilha, segundos, ticks)`: MOGRT com `importMGT`; vídeo importado na
-  bin e colocado com `overwriteClip` na mesma trilha se V e A desse número estiverem livres durante o
-  clipe inteiro, senão na primeira trilha livre no mesmo tempo (nada é coberto).
-O painel (host.js) tira todas as imagens primeiro e depois coloca os itens; imagens em fila na mesma
-trilha viram itens em fila com a duração real. Vídeo solto no Project vai para a bin com `hl_add`; MOGRT
-solto no Project não é importado (só aviso na barra de baixo).
-Ponto em aberto: a troca do vídeo usa `importFiles`, como o botão Adicionar. Se o Premiere trouxer o
-Project para a frente nesse import, isso acontece depois de soltar (não mais durante o arrasto).
-
-### 1.3.6 — vídeo arrastado igual ao Animation Composer
-
-Reteste da 1.3.5: o vídeo entrou certo, mas o Project ainda vinha para a frente depois de soltar
-(confirmado: é o `importFiles` da troca). O usuário pediu para copiar o método do Animation Composer.
-
-Análise do Composer instalado (`com.misterhorse.PremiereComposer`, painel CEP + `jsx/mh-browser-ppro.jsx`):
-- Ao selecionar um item, o painel pede ao ExtendScript os "arquivos de pré-visualização" do item
-  (`Editor.getFootagePreviewFiles`). Para vídeo comum, a resposta é o **próprio caminho do arquivo**.
-  Arquivos gerados (com duração e número de trilhas, por um plugin nativo) só são usados para som,
-  MOGRT, sequência e sequência de imagens, que depois são trocados pelo item real ao soltar.
-- No `dragstart`, o painel só faz `setData("com.adobe.cep.dnd.file.N", caminho)` para cada arquivo.
-  Não mexe em `effectAllowed` e não manda `text/uri-list` nem `text/plain`.
-- No `dragend`, para vídeo comum não faz nada (não há troca nem importação).
-
-A 1.3.6 faz o mesmo para qualquer arrasto que contenha vídeo: só `com.adobe.cep.dnd.file.N`, com o
-caminho real (o MOGRT do mesmo arrasto continua indo como imagem provisória). Saíram a imagem
-provisória de vídeo, `hl_placeAt` (virou `hl_placeMogrt`, só MOGRT) e a importação de vídeo solto no
-Project. Arrastos sem vídeo (áudio, imagem, MOGRT) ficam como estavam.
-Histórico a conferir no reteste: segundo um comentário antigo do código, as versões 1.1 a 1.2.1 já
-mandavam só o formato do CEP e o vídeo falhava ou entrava só com áudio. Não há código dessas versões
-no repositório para comparar; se o C1 falhar do mesmo jeito, a diferença está fora do arrasto (por
-exemplo, nos plugins nativos que o Composer instala).
-
-Reteste da 1.3.6: C1 a C6 passaram ("agora funcionou tudo").
-
-### 1.3.7 — arrastar MOGRT com os passos do Animation Composer
-
-Pedido do usuário: analisar todo o código de arrastar MOGRT do Composer e copiar no Helmet Library.
-
-Como o Composer faz (painel `client/dist/browser.bundle.js` + `jsx/mh-browser-ppro.jsx`, classes
-`Importer` e `MogrtImporter`):
+**MOGRT — como o Composer faz** (classes `Importer` e `MogrtImporter`):
 - **Antes do arrasto:** quando o item fica pronto para arrastar, o painel pede
-  `Editor.getMogrtPreviewFiles`. O ExtendScript lê a duração do MOGRT (e o ponto de corte de transição,
-  se houver), converte para quadros na taxa da sequência, conta as trilhas (1 de vídeo + áudio se o
-  MOGRT tiver som) e cria, pelo plugin nativo (`externalObject.callApi("Preview.createPreviewFile")`),
-  um arquivo `.mhbricks` com essa duração e essas trilhas. O plugin `MHPC_Importer.prm` faz o Premiere
-  aceitar esse formato.
+  `Editor.getMogrtPreviewFiles`. O ExtendScript lê a duração do MOGRT (e o ponto de corte de
+  transição, se houver), converte para quadros na taxa da sequência, conta as trilhas (1 de vídeo +
+  áudio se o MOGRT tiver som) e cria, pelo plugin nativo
+  (`externalObject.callApi("Preview.createPreviewFile")`), um arquivo `.mhbricks` com essa duração e
+  essas trilhas. O plugin `MHPC_Importer.prm` faz o Premiere aceitar esse formato.
 - **dragstart:** só `com.adobe.cep.dnd.file.N` com o `.mhbricks` (no Mac, troca a ordem dos dois
   primeiros arquivos); imagem do arrasto com `setDragImage(elemento, -24, 0)`.
 - **dragend:** chama na hora `Editor.addMogrt` com `replacePreview: true` → `dropMogrt`:
@@ -448,49 +381,38 @@ Como o Composer faz (painel `client/dist/browser.bundle.js` + `jsx/mh-browser-pp
   - "Impedir o refazer": renomeia uma bin dele para o mesmo nome e desfaz, para que Ctrl+Shift+Z não
     traga a soltura de volta.
 
-O que a 1.3.7 copiou (`hl_takeDrop` no host, `takePlaceholders`/`placeItems` no painel):
+**MOGRT — como ficou no Helmet Library** (`hl_takeDrop` e `hl_placeMogrt` no host,
+`takePlaceholders`/`placeItems` no painel):
+- O arrasto leva, no lugar do MOGRT, um PNG cinza 192×108 com o nome dele
+  (`%LOCALAPPDATA%\Helmet Library\arrastar`).
 - Conferência **logo ao soltar** (0 s) e, se ainda não achou, 0,7 s, 2 s e 5 s depois.
 - **Source Monitor:** fecha a imagem, tira do projeto e avisa.
 - **Timeline vazia:** desfaz até a imagem sair do projeto (no máximo 3 vezes, como o Composer),
-  impede o refazer (aqui cria e desfaz uma bin vazia; se ela ficar, é apagada) e avisa.
-- **Timeline:** anota onde cada imagem ficou, dá **um Ctrl+Z** e recria as trilhas que a soltura criou.
-  Com isso volta o que a imagem cinza tinha coberto (antes ficava um buraco quando ela cobria parte de
-  outro clipe). Se depois do Ctrl+Z ainda houver imagem na timeline, ela sai clipe por clipe como antes.
-- O MOGRT colocado fica **selecionado** (vários do mesmo arrasto ficam todos selecionados).
+  impede o refazer (aqui cria e desfaz uma bin vazia; se ela ficar, é apagada) e avisa. A sequência
+  nova é reconhecida por ter só imagens provisórias e o nome de uma delas **sem a extensão** ou o
+  tamanho 192×108 (no Premiere 26 a comparação de nome exato do Composer não bateu).
+- **Timeline:** anota onde cada imagem ficou, dá **um Ctrl+Z** e recria as trilhas que a soltura
+  criou; com isso volta o que a imagem tinha coberto. Se depois do Ctrl+Z ainda houver imagem na
+  timeline, ela sai clipe por clipe. O MOGRT entra com `importMGT` no lugar anotado (vários em fila
+  continuam em fila) e fica **selecionado**.
+- **Painel Project:** o MOGRT não é importado (o Premiere não aceita e abre um aviso); a imagem sai
+  pela bin temporária e a barra de baixo avisa.
+- **MOGRT vai sem outros arquivos**, como no Composer (um item por vez): desfazer uma soltura mista
+  tiraria também o vídeo, que teria de ser importado de novo (e o Project viria para a frente), e
+  tirar a imagem clipe por clipe deixava o Ctrl+Z trazê-la de volta. Se a seleção mistura MOGRT com
+  outros arquivos, o arrasto leva só os MOGRTs e a barra de baixo avisa.
 
-O que ficou diferente, de propósito:
-- **Duração e trilhas da imagem cinza:** o `.mhbricks` tem a duração exata do MOGRT porque é feito por
-  um plugin nativo. Um PNG fica com a duração padrão de imagem do Premiere. Como a soltura é desfeita,
-  isso só muda o tamanho do retângulo enquanto se arrasta, não onde o MOGRT entra.
-- **Ctrl+Z só se o arrasto for só de MOGRTs:** o Composer arrasta um item por vez. No Helmet dá para
-  arrastar MOGRT junto com vídeo/áudio/imagem; desfazer tiraria esses arquivos também. Nesses arrastos
-  mistos a imagem sai clipe por clipe (como na 1.3.6). E só um Ctrl+Z por arrasto.
+O que ficou diferente do Composer, de propósito:
+- **Duração e trilhas da imagem cinza:** o `.mhbricks` tem a duração exata do MOGRT porque é feito
+  por um plugin nativo. Um PNG fica com a duração padrão de imagem do Premiere. Como a soltura é
+  desfeita, isso só muda o tamanho do retângulo enquanto se arrasta, não onde o MOGRT entra.
 - **Solto no Project:** o Composer desfaz na hora. Aqui a decisão só sai na última conferência (5 s),
   porque antes disso a imagem só no projeto pode ser o Premiere ainda colocando na timeline; um Ctrl+Z
-  5 s depois poderia desfazer algo que o usuário fez. Então continua a retirada pela bin temporária.
-- **Sem o "grupo de desfazer" do Composer:** ele mexe na pilha de desfazer do Premiere (`undoStackIndex`
-  e bins marcadoras) para que um Ctrl+Z tire tudo de uma vez. É uma peça grande e frágil; aqui colocar o
-  MOGRT e recriar trilhas continuam sendo passos separados no Ctrl+Z.
-- **Ajustes próprios da Mister Horse** (nome "by Mister Horse", meta `mhpc-meta`, escala 100, cópia do
-  MOGRT no tamanho da sequência, agrupar com `doCommand`) dependem dos MOGRTs e do plugin deles: não
-  se aplicam.
-- A trilha de áudio continua sendo a primeira livre no tempo do MOGRT (o Composer usa a do áudio do
+  5 s depois poderia desfazer algo que o usuário fez.
+- **Sem o "grupo de desfazer" do Composer:** ele mexe na pilha de desfazer do Premiere
+  (`undoStackIndex` e bins marcadoras) para que um Ctrl+Z tire tudo de uma vez. É uma peça grande e
+  frágil; aqui colocar o MOGRT e recriar trilhas continuam sendo passos separados no Ctrl+Z.
+- **Ajustes próprios da Mister Horse** (nome "by Mister Horse", meta `mhpc-meta`, escala 100, cópia
+  do MOGRT no tamanho da sequência, agrupar com `doCommand`) dependem dos MOGRTs e do plugin deles.
+- A trilha de áudio do MOGRT é a primeira livre no tempo dele (o Composer usa a do áudio do
   `.mhbricks`, que o PNG não tem).
-
-### 1.3.8 — correções do reteste da 1.3.7
-
-Reteste da 1.3.7: D1 a D5, D7, D8 e D10 passaram. Duas falhas:
-- **D6** (timeline vazia): ficou uma sequência nova com o MOGRT. A conferência do Composer (nome de um
-  clipe = nome da sequência) não bateu no Premiere 26, provavelmente por causa da extensão. Sem
-  reconhecer a sequência nova, o fluxo seguiu como timeline comum e colocou o MOGRT nela. Agora
-  `hl_isPlaceholderSequence` compara nomes sem extensão (do clipe e do arquivo da imagem) e também
-  aceita o tamanho de quadro 192×108 (o tamanho do PNG provisório, `HL_PLACEHOLDER_W/H`). Continua
-  exigindo que a sequência só tenha imagens provisórias, então uma sequência vazia do usuário onde o
-  MOGRT é solto não é desfeita (teste automático).
-- **D9** (vídeo + MOGRT juntos): funcionou, mas o Ctrl+Z trazia a imagem cinza de volta. No arrasto
-  misto a imagem saía clipe por clipe (`remove`, mover para bin, apagar bin), e cada passo fica no
-  histórico. Desfazer a soltura mista tiraria também o vídeo, que teria de ser importado de novo
-  (`importFiles` traz o painel Project para a frente, problema da 1.3.5). Decisão do usuário: igual ao
-  Composer, que arrasta um item por vez. Se a seleção tem MOGRT e outros arquivos, o `dragstart` leva
-  só os MOGRTs e a barra de baixo avisa. A retirada clipe por clipe fica só como reserva (se a imagem
-  provisória de um MOGRT não puder ser criada).

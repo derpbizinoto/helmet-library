@@ -4,7 +4,7 @@ Extensão CEP para o Adobe Premiere Pro que transforma pastas do computador em b
 
 Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (Violet Terminal com degradês sutis), Geo em caixa alta no nome e Roboto no resto.
 
-Versão atual: **1.3.8** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
+Versão atual: **1.1.0** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
 
 ## Instalação
 
@@ -121,8 +121,7 @@ instalar.bat               instalador (Windows)
 Add Keys.reg               libera extensões não assinadas (alternativa manual)
 empacotar.ps1              gera o .zip para distribuir
 tests/                     testes automáticos (Node)
-TESTES.md                  roteiro de testes no Premiere
-AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1 a 1.3.8
+AUDITORIA.md               auditoria de segurança e limpeza, testes no Premiere e o arrastar
 ```
 
 ## Para quem mexe no código
@@ -135,7 +134,7 @@ Precisa do [Node.js](https://nodejs.org). Na pasta do projeto:
 node tests/run-tests.js
 ```
 
-Testam o que dá para testar fora do Premiere: configuração (backup, arquivo estragado), pastas e atalhos, cache, leitor de `.mogrt` (inclusive arquivos danificados), ponte com o Premiere com nomes difíceis e o `host/index.jsx` rodando num "Premiere de mentira" (`tests/premiere-mock.js`). O que só dá para ver no Premiere está no [TESTES.md](TESTES.md).
+Testam o que dá para testar fora do Premiere: configuração (backup, arquivo estragado), pastas e atalhos, cache, leitor de `.mogrt` (inclusive arquivos danificados), ponte com o Premiere com nomes difíceis e o `host/index.jsx` rodando num "Premiere de mentira" (`tests/premiere-mock.js`). O que só dá para ver no Premiere (arrastar, Esc, painel desconectado) precisa ser testado no Premiere.
 
 ### Gerar o pacote
 
