@@ -42,6 +42,9 @@
         L.cacheSize(app.cacheDirs()).then(function (size) {
             if (token !== cacheInfoToken) return;
             els.cacheSize.textContent = size.files ? "Ocupando " + L.fmtBytes(size.bytes) + " (" + size.files + " arquivos)" : "Nenhum preview salvo ainda.";
+        }, function (err) {
+            if (token !== cacheInfoToken) return;
+            els.cacheSize.textContent = "Não deu para medir os previews: " + L.describeError(err, "folder");
         });
     }
 

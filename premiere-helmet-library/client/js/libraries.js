@@ -109,10 +109,13 @@
                 return L.clearCache(dirs).then(function (n) {
                     P.clearMemo();
                     if (!els.settings.hidden) app.updateCacheInfo();
-                    setStatus(n + " arquivo(s) de preview apagados" + where + ". Eles são recriados quando você abrir as pastas.", "success");
+                    if (n < size.files) setStatus(n + " de " + size.files + " arquivo(s) de preview apagados" + where + ". Os outros estão em uso ou sem permissão; tente de novo com o Premiere fechado.", "warning");
+                    else setStatus(n + " arquivo(s) de preview apagados" + where + ". Eles são recriados quando você abrir as pastas.", "success");
                     if (state.view) app.loadItems(false);
                 });
             });
+        }).catch(function (err) {
+            setStatus("Não deu para limpar os previews" + where + ": " + L.describeError(err, "folder"), "error");
         });
     }
 

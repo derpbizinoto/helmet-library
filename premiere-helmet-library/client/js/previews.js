@@ -209,7 +209,7 @@
     function loadImage(url) {
         return new Promise(function (resolve, reject) {
             var img = new Image();
-            var t = setTimeout(function () { reject(new Error("tempo esgotado ao abrir imagem")); }, HL.MEDIA_TIMEOUT_MS);
+            var t = setTimeout(function () { reject(new Error("a imagem demorou demais para abrir (disco lento ou desconectado?)")); }, HL.MEDIA_TIMEOUT_MS);
             img.onload = function () { clearTimeout(t); resolve(img); };
             img.onerror = function () { clearTimeout(t); reject(new Error("imagem não suportada")); };
             img.src = url;
@@ -233,7 +233,7 @@
             v.muted = true;
             v.preload = "auto";
             var done = false;
-            var timer = setTimeout(function () { fail(new Error("tempo esgotado ao abrir vídeo")); }, HL.MEDIA_TIMEOUT_MS);
+            var timer = setTimeout(function () { fail(new Error("o vídeo demorou demais para abrir (disco lento ou desconectado?)")); }, HL.MEDIA_TIMEOUT_MS);
             function cleanup() { clearTimeout(timer); v.removeAttribute("src"); try { v.load(); } catch (e) { } }
             function fail(err) { if (done) return; done = true; cleanup(); reject(err); }
             v.onerror = function () { fail(new Error("codec não suportado no preview (use H.264)")); };
@@ -358,6 +358,8 @@
     function mogrtThumb(file, ci) {
         var meta = {};
         return L.inspectMogrt(file.path).catch(function (e) {
+            // erro de disco (sem permissão, desconectado) ou .mogrt danificado/grande demais
+            if (e && e.code && e.code !== "MOGRT_INVALID") throw new Error(L.describeError(e, "file"));
             throw new Error("MOGRT sem preview (arquivo grande demais ou danificado: " + e.message + ")");
         }).then(function (info) {
             meta.title = info.title || "";

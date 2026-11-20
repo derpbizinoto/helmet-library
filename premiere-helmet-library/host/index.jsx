@@ -76,7 +76,7 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
         if (!app.project) throw hl_userError("Nenhum projeto aberto.");
         if (!HL_KINDS[kind]) kind = "other";
         var f = new File(String(path));
-        if (!f.exists) throw hl_userError("Arquivo não encontrado: " + path);
+        if (!f.exists) throw hl_userError("Arquivo não encontrado (foi movido, apagado ou está num HD/pasta de rede desconectado).");
         var fsPath = f.fsName;
         var wantTimeline = toTimeline === true;
         var seq = app.project.activeSequence;
