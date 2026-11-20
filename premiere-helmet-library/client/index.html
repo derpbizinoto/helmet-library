@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Helmet Library</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <!-- Ícones (Lucide, traço 2px), reaproveitados com <use> -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+            <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+            <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
+            <symbol id="i-folder-plus" viewBox="0 0 24 24"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+            <symbol id="i-library" viewBox="0 0 24 24"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></symbol>
+            <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+            <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+            <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+            <symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+            <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></symbol>
+            <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+            <symbol id="i-volume" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+            <symbol id="i-mute" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></symbol>
+            <symbol id="i-film" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/></symbol>
+            <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+            <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+            <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></symbol>
+            <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+            <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+            <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+            <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+            <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+            <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></symbol>
+            <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+            <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+            <symbol id="i-timeline" viewBox="0 0 24 24"><path d="M3 5h12"/><path d="M3 12h7"/><path d="M14 12h7"/><path d="M3 19h12"/><path d="M19 16v6"/><path d="M16 19h6"/></symbol>
+        </defs>
+    </svg>
+
+    <header class="app-header">
+        <div class="brand">
+            <img class="brand-logo" src="img/logo.png" alt="" />
+            <h1>Helmet Library</h1>
+        </div>
+        <div class="search-box">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input type="text" id="searchInput" class="input" placeholder="Buscar nesta pasta e subpastas" spellcheck="false" autocomplete="off" />
+            <button id="btnClearSearch" class="icon-btn sm" title="Limpar busca" hidden><svg class="icon"><use href="#i-x"/></svg></button>
+        </div>
+        <select id="filterSelect" class="input" title="Tipo de arquivo">
+            <option value="all">Todos os tipos</option>
+            <option value="video">Vídeos</option>
+            <option value="audio">Áudios</option>
+            <option value="image">Imagens</option>
+            <option value="mogrt">MOGRTs</option>
+            <option value="other">Outros</option>
+        </select>
+        <button id="btnSettings" class="icon-btn" title="Configurações"><svg class="icon"><use href="#i-sliders"/></svg></button>
+    </header>
+
+    <div class="workspace">
+        <aside class="sidebar" id="sidebar">
+            <div class="tree" id="tree" role="tree"></div>
+            <div class="sidebar-foot">
+                <button id="btnAddLibrary" class="btn btn-secondary btn-sm"><svg class="icon"><use href="#i-folder-plus"/></svg>Adicionar pasta</button>
+            </div>
+        </aside>
+        <div class="splitter" id="splitter" title="Arraste para redimensionar"></div>
+
+        <section class="main">
+            <div class="crumbs">
+                <div class="crumb-path" id="crumbPath"></div>
+                <span class="crumb-count" id="crumbCount"></span>
+                <button id="btnSubfolders" class="icon-btn sm toggle" title="Mostrar também os arquivos das subpastas"><svg class="icon"><use href="#i-layers"/></svg></button>
+                <button id="btnRefresh" class="icon-btn sm" title="Atualizar"><svg class="icon"><use href="#i-refresh"/></svg></button>
+            </div>
+
+            <div class="grid-wrap" id="gridWrap" tabindex="0">
+                <div class="grid" id="grid"></div>
+                <div class="empty-state" id="emptyState" hidden></div>
+            </div>
+
+            <div class="player" id="player" hidden>
+                <div class="player-stage mode-none" id="playerStage">
+                    <canvas id="waveCanvas"></canvas>
+                    <video id="playerVideo" playsinline></video>
+                    <img id="playerImage" alt="" />
+                    <div class="player-empty" id="playerEmpty">Selecione um arquivo para pré-visualizar.</div>
+                    <div class="wave-cursor" id="waveCursor"></div>
+                </div>
+                <!-- barra de progresso com a minutagem -->
+                <div class="seek-row">
+                    <span class="seek-time" id="timeCur">00:00:00:00</span>
+                    <div class="seek" id="seekBar" title="Arraste para buscar">
+                        <div class="seek-track"><div class="seek-fill" id="seekFill"></div></div>
+                        <div class="seek-thumb" id="seekThumb"></div>
+                        <div class="seek-tip" id="seekTip" hidden></div>
+                    </div>
+                    <span class="seek-time total" id="timeTotal">00:00:00:00</span>
+                </div>
+                <div class="player-bar">
+                    <button id="btnPlay" class="icon-btn sm" title="Tocar (espaço)"><svg class="icon"><use href="#i-play"/></svg></button>
+                    <button id="btnMute" class="icon-btn sm" title="Mudo"><svg class="icon"><use href="#i-volume"/></svg></button>
+                    <input type="range" id="volumeRange" class="range vol" min="0" max="1" step="0.01" value="0.8" title="Volume do preview" />
+                    <div class="pitch-row" id="pitchRow">
+                        <span class="pitch-label">Pitch</span>
+                        <input type="range" id="pitchRange" class="range" min="-12" max="12" step="1" value="0" title="Só no preview, não altera o arquivo" />
+                        <span class="pitch-val" id="pitchVal">0</span>
+                        <label class="check" title="Toca de trás pra frente (só no preview)"><input type="checkbox" id="reverseCheckbox" /><span class="box"></span>Reverse</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <footer class="app-footer">
+        <div class="size-ctl" title="Tamanho das miniaturas">
+            <svg class="icon"><use href="#i-grid"/></svg>
+            <input type="range" id="sizeRange" class="range" min="110" max="340" step="2" value="168" />
+        </div>
+        <div class="status" id="status" role="status"></div>
+        <button id="btnImport" class="btn btn-secondary btn-sm" title="Importa no painel Project sem colocar na timeline"><svg class="icon"><use href="#i-download"/></svg>Só no projeto</button>
+        <button id="btnAdd" class="btn btn-primary btn-sm" title="Coloca na timeline, na posição da agulha (Enter)"><svg class="icon"><use href="#i-plus"/></svg>Adicionar</button>
+    </footer>
+
+    <!-- menu de contexto -->
+    <div class="menu" id="menu" hidden></div>
+
+    <!-- configurações -->
+    <div class="modal-back" id="settingsModal" hidden>
+        <div class="modal" role="dialog" aria-labelledby="settingsTitle">
+            <div class="modal-head">
+                <div class="card-title" id="settingsTitle"><svg class="icon"><use href="#i-sliders"/></svg>Configurações</div>
+                <button class="icon-btn sm" data-close title="Fechar"><svg class="icon"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="modal-body">
+                <div class="group-label">Onde salvar os previews</div>
+                <div class="segmented">
+                    <label><input type="radio" name="cacheMode" value="library" /><span>Dentro da biblioteca</span></label>
+                    <label><input type="radio" name="cacheMode" value="system" /><span>Cache do sistema</span></label>
+                </div>
+                <p class="hint" id="cacheHint"></p>
+                <div class="inline-field">
+                    <span class="hint no-margin" id="cacheSize">—</span>
+                    <button class="btn btn-secondary btn-sm" id="btnClearCache"><svg class="icon"><use href="#i-trash"/></svg>Limpar previews</button>
+                </div>
+
+                <div class="group-label">Ao adicionar</div>
+                <label class="switch-row first">
+                    <span class="switch-text">Importar numa bin "Helmet Library"
+                        <small>Desligado: vai para a raiz do Project</small></span>
+                    <span class="switch"><input type="checkbox" id="setUseBin" /><span class="slider-ui"></span></span>
+                </label>
+                <label class="switch-row">
+                    <span class="switch-text">Recriar as pastas como bins
+                        <small>Ex.: Helmet Library › SFX › Whooshes</small></span>
+                    <span class="switch"><input type="checkbox" id="setMirror" /><span class="slider-ui"></span></span>
+                </label>
+                <div class="inline-field">
+                    <label for="setDblClick">Duplo clique no arquivo</label>
+                    <select id="setDblClick" class="input">
+                        <option value="timeline">Adiciona na timeline</option>
+                        <option value="project">Importa só no projeto</option>
+                    </select>
+                </div>
+
+                <div class="group-label">Exibição</div>
+                <label class="switch-row first">
+                    <span class="switch-text">Tocar ao selecionar
+                        <small>Áudio e vídeo começam no player ao clicar</small></span>
+                    <span class="switch"><input type="checkbox" id="setAutoplay" /><span class="slider-ui"></span></span>
+                </label>
+                <label class="switch-row">
+                    <span class="switch-text">Mostrar outros arquivos
+                        <small>Lista também o que o Premiere não importa</small></span>
+                    <span class="switch"><input type="checkbox" id="setUnknown" /><span class="slider-ui"></span></span>
+                </label>
+                <p class="hint version" id="versionNote"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- caixa de texto / confirmação genérica -->
+    <div class="modal-back" id="askModal" hidden>
+        <div class="modal small" role="dialog">
+            <div class="modal-head"><div class="card-title" id="askTitle"></div></div>
+            <div class="modal-body">
+                <p class="hint no-margin" id="askText"></p>
+                <input type="text" id="askInput" class="input full" spellcheck="false" />
+                <div class="modal-actions">
+                    <button class="btn btn-secondary btn-sm" id="askCancel">Cancelar</button>
+                    <button class="btn btn-primary btn-sm" id="askOk">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/CSInterface.js"></script>
+    <script src="js/library.js"></script>
+    <script src="js/demo.js"></script>
+    <script src="js/previews.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

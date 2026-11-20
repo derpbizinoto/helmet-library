@@ -1,0 +1,26 @@
+fecha o premiere antes de tudo!!!
+
+jeito fácil:
+dá dois cliques no instalar.bat e pronto. ele copia a extensão e libera extensões não assinadas.
+(não precisa de admin, instala só pro seu usuário)
+
+jeito manual (igual o Helmet Cutter):
+copia a pasta premiere-helmet-library para:
+Win: C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\
+roda Add Keys.reg se vc não tiver rodado anteriormente (é pra permitir instalar extensões não assinadas pela adobe)
+
+no Premiere: Window > Extensions > Helmet Library
+
+primeiro uso:
+clica em "Adicionar pasta" (embaixo, na barra da esquerda) e escolhe uma pasta do pc com seus sons, vídeos, imagens, mogrts...
+pode adicionar quantas pastas quiser. as subpastas aparecem na árvore do lado esquerdo.
+
+pra usar um arquivo:
+- arrasta o card direto pra timeline ou pro painel Project, ou
+- seleciona e clica em "Adicionar" (vai pra timeline, na agulha, na primeira trilha livre), ou
+- duplo clique / Enter
+
+os previews ficam numa pasta oculta ".helmet-previews" dentro de cada biblioteca
+(dá pra trocar pro cache do sistema nas configurações, no ícone de controles lá em cima).
+
+pronto!
