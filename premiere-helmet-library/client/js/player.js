@@ -17,20 +17,12 @@
         buffer: null, reversed: null, source: null, gain: null,
         startedAt: 0, startPos: 0, pos: 0, playing: false, peaks: null, pendingPlay: false,
         audioEl: null,       // fallback quando o Web Audio não decodifica
-        loop: false, volume: 0.8, pitch: 0, reverse: false,
+        volume: 0.8, pitch: 0, reverse: false,
         raf: 0, token: 0
     };
     var onState = function () { };
 
     function $(id) { return document.getElementById(id); }
-
-    function multi(ids) {
-        var nodes = ids.map($).filter(Boolean);
-        return {
-            set textContent(v) { nodes.forEach(function (n) { n.textContent = v; }); },
-            get textContent() { return nodes.length ? nodes[0].textContent : ""; }
-        };
-    }
 
     function init(opts) {
         els = {
@@ -39,7 +31,7 @@
             btnPlay: $("btnPlay"),
             volume: $("volumeRange"), btnMute: $("btnMute"),
             // minutagem: só junto da barra de progresso do vídeo (no áudio não aparece)
-            cur: multi(["timeCur"]), total: multi(["timeTotal"]),
+            cur: $("timeCur"), total: $("timeTotal"),
             player: $("player"),
             pitchRow: $("pitchRow"), pitch: $("pitchRange"), pitchVal: $("pitchVal"),
             reverse: $("reverseCheckbox"),
@@ -141,7 +133,7 @@
                 // sem Web Audio (ou arquivo grande): toca pelo elemento <audio> (sem pitch/reverse)
                 var a = new Audio(window.HLLibrary.toFileUrl(file.path));
                 a.volume = state.volume;
-                a.addEventListener("ended", function () { if (state.loop) { a.currentTime = 0; a.play(); } else setPlayingUi(false); });
+                a.addEventListener("ended", function () { setPlayingUi(false); });
                 a.addEventListener("loadedmetadata", function () { els.total.textContent = fmt(a.duration); });
                 state.audioEl = a;
                 if (autoplay || state.pendingPlay) { state.pendingPlay = false; play(); }
@@ -154,7 +146,6 @@
         if (file.kind === "mogrt" && prev && prev.video) videoUrl = prev.video;
         if (videoUrl) {
             show("video");
-            els.video.loop = state.loop;
             els.video.volume = state.volume;
             els.video.src = videoUrl;
             if (prev && prev.thumb) els.video.poster = prev.thumb; else els.video.removeAttribute("poster");
@@ -222,7 +213,6 @@
         if (!state.playing) return state.pos;
         var el = (P.audioContext().currentTime - state.startedAt) * rate();
         var p = state.reverse ? state.startPos - el : state.startPos + el;
-        if (state.loop && d) p = ((p % d) + d) % d;
         return Math.min(d, Math.max(0, p));
     }
 
@@ -236,7 +226,7 @@
         if (state.mode === "video") { els.video.play().catch(function () { }); return; }
         if (state.mode !== "audio") return;
         if (state.audioEl) {
-            state.audioEl.play().then(function () { setPlayingUi(true); loop(); }, function () { });
+            state.audioEl.play().then(function () { setPlayingUi(true); animate(); }, function () { });
             return;
         }
         if (!state.buffer) { state.pendingPlay = true; return; }
@@ -251,7 +241,6 @@
         var src = ac.createBufferSource();
         src.buffer = buf;
         src.playbackRate.value = rate();
-        src.loop = state.loop;
         if (!state.gain) { state.gain = ac.createGain(); state.gain.connect(ac.destination); }
         state.gain.gain.value = state.volume;
         src.connect(state.gain);
@@ -270,7 +259,7 @@
         state.startPos = state.pos;
         state.playing = true;
         setPlayingUi(true);
-        loop();
+        animate();
         tick();
     }
 
@@ -294,17 +283,6 @@
 
     function toggle() {
         if (isPlaying()) pause(); else play();
-    }
-
-    function stop() {
-        state.pendingPlay = false;
-        if (state.mode === "video") { els.video.pause(); els.video.currentTime = 0; tick(); return; }
-        if (state.audioEl) { state.audioEl.pause(); state.audioEl.currentTime = 0; }
-        stopSource();
-        state.playing = false;
-        state.pos = 0;
-        setPlayingUi(false);
-        tick();
     }
 
     function stopSource() {
@@ -339,7 +317,8 @@
         if (wasPlaying) play();
     }
 
-    function loop() {
+    // move o cursor enquanto toca
+    function animate() {
         cancelAnimationFrame(state.raf);
         var step = function () {
             tick();
@@ -436,12 +415,7 @@
         load: load,
         updatePreview: updatePreview,
         toggle: toggle,
-        play: play,
-        stop: stop,
-        isPlaying: function () { return isPlaying(); },
         stopAll: stopAll,
-        currentFile: function () { return state.file; },
-        position: function () { return position(); },
-        fmt: fmt
+        currentFile: function () { return state.file; }
     };
 })();

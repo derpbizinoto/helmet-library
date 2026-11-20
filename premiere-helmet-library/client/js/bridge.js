@@ -17,7 +17,7 @@ var HLBridge = (function () {
     var available = typeof window !== "undefined" && typeof window.__adobe_cep__ !== "undefined" &&
         typeof CSInterface === "function";
     var cs = available ? new CSInterface() : null;
-    var log = function (msg) { console.warn("Helmet Library: " + msg); };
+    var log = function (msg) { window.HL.warn(msg); };
 
     var LINE_SEP = new RegExp(String.fromCharCode(0x2028), "g");
     var PARA_SEP = new RegExp(String.fromCharCode(0x2029), "g");

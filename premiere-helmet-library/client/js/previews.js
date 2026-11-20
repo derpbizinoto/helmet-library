@@ -10,11 +10,12 @@
 (function () {
     "use strict";
 
+    var HL = window.HL;
     var L = window.HLLibrary;
-    var THUMB_W = 384, THUMB_H = 216;
-    var PEAKS = 800;                       // colunas da forma de onda guardada
-    var MAX_AUDIO_BYTES = 300 * 1024 * 1024;
-    var CONCURRENCY = 2;
+    var THUMB_W = HL.THUMB_W, THUMB_H = HL.THUMB_H;
+    var PEAKS = HL.PEAKS;
+    var MAX_AUDIO_BYTES = HL.MAX_AUDIO_BYTES;
+    var CONCURRENCY = HL.PREVIEW_CONCURRENCY;
     var VERSION = 1;                       // muda quando o formato do cache mudar
 
     var memo = {};                         // caminho|mtime → resultado
@@ -71,7 +72,7 @@
             // Promise.resolve().then: um erro dentro de run (ex.: pasta só leitura) vira falha
             // deste arquivo, em vez de deixar a fila presa para sempre
             Promise.resolve(job).then(run).then(function (j, res) { finish(j, res); }.bind(null, job), function (j, err) {
-                console.warn("Helmet Library: preview falhou", j.file.path, err);
+                HL.log("preview falhou", j.file.path, err);
                 finish(j, { thumb: null, video: null, meta: { error: errorText(err, j.file, null) } });
             }.bind(null, job));
         }
@@ -100,7 +101,7 @@
 
     var problemHandler = function () { };
 
-    function noop() { }
+    function logWriteError(err) { HL.log("preview não gravado", err); }
 
     function run(job) {
         var file = job.file;
@@ -122,11 +123,11 @@
 
             return work.then(function (meta) {
                 meta.v = VERSION;
-                return writeFile(ci.base + ".json", JSON.stringify(meta)).catch(noop).then(function () { return result(ci, meta); });
+                return writeFile(ci.base + ".json", JSON.stringify(meta)).catch(logWriteError).then(function () { return result(ci, meta); });
             }, function (err) {
                 // grava a falha para não tentar de novo a cada abertura (a chave muda se o arquivo mudar)
                 var meta = { v: VERSION, error: errorText(err, file, ci) };
-                return writeFile(ci.base + ".json", JSON.stringify(meta)).catch(noop).then(function () { return result(ci, meta); });
+                return writeFile(ci.base + ".json", JSON.stringify(meta)).catch(logWriteError).then(function () { return result(ci, meta); });
             });
         });
     }
@@ -208,7 +209,7 @@
     function loadImage(url) {
         return new Promise(function (resolve, reject) {
             var img = new Image();
-            var t = setTimeout(function () { reject(new Error("tempo esgotado ao abrir imagem")); }, 20000);
+            var t = setTimeout(function () { reject(new Error("tempo esgotado ao abrir imagem")); }, HL.MEDIA_TIMEOUT_MS);
             img.onload = function () { clearTimeout(t); resolve(img); };
             img.onerror = function () { clearTimeout(t); reject(new Error("imagem não suportada")); };
             img.src = url;
@@ -220,7 +221,7 @@
             var w = img.naturalWidth || THUMB_W, h = img.naturalHeight || THUMB_H;
             var alpha = /^(png|gif|webp|svg)$/.test(file.ext);
             return saveCanvas(drawContain(img, w, h, alpha), ci).then(function () {
-                return { hasThumb: true, width: w, height: h, animated: file.ext === "gif" };
+                return { hasThumb: true, width: w, height: h };
             });
         });
     }
@@ -232,7 +233,7 @@
             v.muted = true;
             v.preload = "auto";
             var done = false;
-            var timer = setTimeout(function () { fail(new Error("tempo esgotado ao abrir vídeo")); }, 20000);
+            var timer = setTimeout(function () { fail(new Error("tempo esgotado ao abrir vídeo")); }, HL.MEDIA_TIMEOUT_MS);
             function cleanup() { clearTimeout(timer); v.removeAttribute("src"); try { v.load(); } catch (e) { } }
             function fail(err) { if (done) return; done = true; cleanup(); reject(err); }
             v.onerror = function () { fail(new Error("codec não suportado no preview (use H.264)")); };

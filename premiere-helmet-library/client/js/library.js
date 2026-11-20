@@ -14,33 +14,13 @@
     var zlib = hasNode ? require("zlib") : null;
     var cp = hasNode ? require("child_process") : null;
 
-    var APP_NAME = "Helmet Library";
-    var CACHE_DIR_NAME = ".helmet-previews";
+    var HL = window.HL;
+    var APP_NAME = HL.APP_NAME;
+    var CACHE_DIR_NAME = HL.CACHE_DIR_NAME;
+    var TYPES = HL.TYPES;
+    var IGNORE = HL.IGNORE_NAMES;
 
-    // ---------- tipos ----------
-    // kind: o que o Premiere recebe (video/audio/image/mogrt/other)
-    // preview: o painel consegue mostrar o conteúdo (o resto aparece com ícone)
-    var TYPES = {
-        mp4: { kind: "video", preview: true }, m4v: { kind: "video", preview: true }, mov: { kind: "video", preview: true },
-        webm: { kind: "video", preview: true }, avi: { kind: "video" }, mxf: { kind: "video" }, mkv: { kind: "video" },
-        wmv: { kind: "video" }, mpg: { kind: "video" }, mpeg: { kind: "video" }, mts: { kind: "video" }, m2ts: { kind: "video" },
-
-        wav: { kind: "audio", preview: true }, mp3: { kind: "audio", preview: true }, m4a: { kind: "audio", preview: true },
-        aac: { kind: "audio", preview: true }, ogg: { kind: "audio", preview: true }, flac: { kind: "audio", preview: true },
-        aif: { kind: "audio" }, aiff: { kind: "audio" }, wma: { kind: "audio" },
-
-        jpg: { kind: "image", preview: true }, jpeg: { kind: "image", preview: true }, png: { kind: "image", preview: true },
-        gif: { kind: "image", preview: true }, bmp: { kind: "image", preview: true }, webp: { kind: "image", preview: true },
-        svg: { kind: "image", preview: true }, psd: { kind: "image" }, ai: { kind: "image" }, eps: { kind: "image" },
-        tif: { kind: "image" }, tiff: { kind: "image" }, tga: { kind: "image" }, exr: { kind: "image" }, dpx: { kind: "image" },
-
-        mogrt: { kind: "mogrt", preview: true },
-
-        aep: { kind: "other" }, prproj: { kind: "other" }, aegraphic: { kind: "other" }, ffx: { kind: "other" },
-        prfpset: { kind: "other" }, cube: { kind: "other" }, srt: { kind: "other" }, xml: { kind: "other" }
-    };
-
-    var IGNORE = { "thumbs.db": 1, "desktop.ini": 1, ".ds_store": 1 };
+    // ---------- tipos (lista em config.js) ----------
 
     function typeOf(name) {
         var ext = name.lastIndexOf(".") > 0 ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : "";
@@ -66,23 +46,7 @@
 
     // ---------- configuração ----------
 
-    var DEFAULTS = {
-        libraries: [],            // [{ id, name, path }]
-        favorites: [],            // caminhos completos
-        expanded: [],             // pastas abertas na árvore
-        lastView: null,           // { type: "folder", path } | { type: "favorites" }
-        cacheMode: "library",     // "library" (.helmet-previews dentro da biblioteca) | "system"
-        useBin: true,             // importar numa bin "Helmet Library"
-        mirrorFolders: true,      // criar sub-bins iguais às subpastas
-        includeSub: false,        // mostrar arquivos das subpastas junto
-        showUnknown: false,       // mostrar arquivos que o Premiere não importa
-        autoplay: true,           // tocar ao selecionar
-        dblClick: "timeline",     // "timeline" | "project"
-        thumbSize: 168,
-        sidebarWidth: 230,
-        volume: 0.8,
-        filter: "all"
-    };
+    var DEFAULTS = HL.DEFAULTS;
 
     function appDataDir() {
         var base = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
@@ -204,12 +168,12 @@
             var tmp = configPath() + ".tmp";
             fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), "utf8");
             if (readJsonFile(configPath()).ok) {
-                try { fs.copyFileSync(configPath(), backupPath()); } catch (e) { /* segue sem backup novo */ }
+                try { fs.copyFileSync(configPath(), backupPath()); } catch (e) { HL.log("backup da configuração não foi gravado", e); }
             }
             fs.renameSync(tmp, configPath());
             return true;
         } catch (e) {
-            console.error("Helmet Library: falha ao salvar config", e);
+            HL.warn("falha ao salvar a configuração", e);
             saveErrorHandler(e);
             return false;
         }
@@ -219,7 +183,7 @@
     function saveConfig(cfg, now) {
         clearTimeout(saveTimer);
         if (now) writeConfigNow(cfg);
-        else saveTimer = setTimeout(function () { writeConfigNow(cfg); }, 300);
+        else saveTimer = setTimeout(function () { writeConfigNow(cfg); }, HL.CONFIG_SAVE_DELAY_MS);
     }
 
     function newId() { return "lib" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -309,7 +273,7 @@
     // faz a leitura andar em círculo. Se passar do limite, o resultado vem com truncated = true.
     function walk(dir, opts, limit) {
         opts = opts || {};
-        limit = limit || 20000;
+        limit = limit || HL.WALK_LIMIT;
         var out = [];
         var seen = {};
         return realpath(dir).catch(function () { return path.resolve(dir); }).then(function (startReal) {
@@ -465,12 +429,7 @@
     // MOGRTs costumam vir da internet: nenhum tamanho escrito dentro do arquivo é aceito sem
     // conferência, tudo tem limite e a leitura é assíncrona (não trava o painel).
 
-    var ZIP_LIMITS = {
-        directory: 16 * 1024 * 1024,     // índice do .zip
-        image: 32 * 1024 * 1024,         // miniatura
-        video: 200 * 1024 * 1024,        // vídeo de preview
-        json: 4 * 1024 * 1024            // definition.json (título)
-    };
+    var ZIP_LIMITS = HL.ZIP_LIMITS;
 
     function zipError(msg) { var e = new Error(msg); e.code = "MOGRT_INVALID"; return e; }
 
@@ -622,7 +581,7 @@
                 // arquivos que o Premiere/Windows criam ao lado da mídia (.cfa, .pek, .xmp, temporários):
                 // ignorados para a grade não ser recriada à toa (isso atrapalhava o arrastar)
                 var base = name ? path.basename(String(name)) : "";
-                if (base && (isHidden(base) || /\.(cfa|pek|xmp|tmp|crdownload|part|ims|mcdb|prmdc|lck)$/i.test(base))) return;
+                if (base && (isHidden(base) || HL.WATCH_IGNORE.test(base))) return;
                 var sub = name ? path.dirname(path.join(dir, String(name))) : dir;
                 changed[sub] = true;
                 clearTimeout(timer);
@@ -630,10 +589,10 @@
                     var list = Object.keys(changed);
                     changed = {};
                     onChange(dir, list);
-                }, 700);
+                }, HL.WATCH_DELAY_MS);
             });
             watchers[dir].on("error", function () { unwatch(dir); });
-        } catch (e) { /* pasta inacessível: sem vigia */ }
+        } catch (e) { HL.log("sem vigia de pastas em " + dir, e); }
     }
 
     function unwatch(dir) {
@@ -669,17 +628,19 @@
     // Marca a pasta como oculta (attrib +h). Falhar aqui não é problema: só fica visível.
     function hideFolder(dir) {
         try {
-            cp.execFile(PROGRAMS.attrib(), ["+h", dir], { windowsHide: true, timeout: 10000 }, function () { });
-        } catch (e) { /* ignora */ }
+            cp.execFile(PROGRAMS.attrib(), ["+h", dir], { windowsHide: true, timeout: HL.PROGRAM_TIMEOUT_MS }, function (err) {
+                if (err) HL.log("attrib +h falhou em " + dir, err);
+            });
+        } catch (e) { HL.log("attrib +h falhou em " + dir, e); }
     }
 
     // Abre um programa e não espera por ele (Explorer, Finder).
     function launch(exe, args) {
         try {
             var child = cp.spawn(exe, args, { detached: true, stdio: "ignore" });
-            child.on("error", function (e) { console.warn("Helmet Library: não abriu " + exe, e); });
+            child.on("error", function (e) { HL.warn("não abriu " + exe, e); });
             child.unref();
-        } catch (e) { console.warn("Helmet Library: não abriu " + exe, e); }
+        } catch (e) { HL.warn("não abriu " + exe, e); }
     }
 
     function reveal(pth) {
@@ -736,6 +697,7 @@
         openFolder: openFolder,
         _programs: PROGRAMS,   // exposto para os testes automáticos
         fmtBytes: fmtBytes,
+        byName: byName,
         appDataDir: appDataDir,
         path: path,
         fs: fs

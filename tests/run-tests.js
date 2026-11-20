@@ -47,7 +47,8 @@ function loadPanel(files, env) {
     };
     ctx.window = ctx;
     vm.createContext(ctx);
-    files.forEach((f) => vm.runInContext(read(f), ctx, { filename: f }));
+    // config.js (constantes e registro) vem sempre antes, como no index.html
+    ["client/js/config.js"].concat(files).forEach((f) => vm.runInContext(read(f), ctx, { filename: f }));
     return ctx;
 }
 
@@ -239,12 +240,24 @@ test("pastas: biblioteca removida/renomeada ou HD desligado dá aviso claro, sem
     assert.strictEqual(L.describeError(new Error("outra coisa"), "folder"), "outra coisa");
 });
 
+// Código de todos os scripts do painel (menos o CSInterface.js da Adobe): { nome: texto }
+function panelSources() {
+    const dir = path.join(ROOT, "client", "js");
+    const out = {};
+    fs.readdirSync(dir).filter((n) => n.endsWith(".js") && n !== "CSInterface.js").forEach((n) => { out[n] = fs.readFileSync(path.join(dir, n), "utf8"); });
+    return out;
+}
+
+// arquivos da interface (os que rodam na tela, fora a parte Node de library.js)
+const UI_FILES = ["app.js", "tree.js", "grid.js", "host.js", "libraries.js", "menus.js", "settings.js", "main.js"];
+
 test("robustez: navegar e gerar previews não usa leitura síncrona do disco", () => {
-    const main = read("client/js/main.js");
-    const previews = read("client/js/previews.js");
-    assert.ok(!/L\.exists\(/.test(main), "main.js usa L.exists (síncrono)");
-    assert.ok(!/Sync\(/.test(main), "main.js usa função *Sync");
-    assert.ok(!/Sync\(/.test(previews), "previews.js usa função *Sync");
+    const src = panelSources();
+    UI_FILES.forEach((n) => {
+        assert.ok(!/L\.exists\(/.test(src[n]), n + " usa L.exists (síncrono)");
+        assert.ok(!/Sync\(/.test(src[n]), n + " usa função *Sync");
+    });
+    assert.ok(!/Sync\(/.test(src["previews.js"]), "previews.js usa função *Sync");
     assert.match(read("client/js/player.js"), /MAX_AUDIO_BYTES/, "player.js deve desviar áudio grande para o <audio>");
 });
 
@@ -399,7 +412,7 @@ test("mogrt: arquivo danificado ou com tamanhos falsos é recusado sem travar", 
 // ---------------------------------------------------------------------------
 
 test("processos: nenhum exec com texto; attrib/explorer pelo caminho completo", () => {
-    const src = read("client/js/library.js") + read("client/js/main.js") + read("client/js/previews.js") + read("client/js/player.js");
+    const src = Object.values(panelSources()).join("\n");
     assert.ok(!/\bcp\.exec\(|\bexecSync\(|shell\s*:\s*true/.test(src), "exec com texto ou shell: true");
     assert.ok(!/\beval\(|new Function\(|setTimeout\(\s*["']/.test(src), "eval / new Function / setTimeout com texto");
     const L = loadPanel(["client/js/library.js"], { SystemRoot: "D:\\WinTeste", APPDATA: tmpDir("cfg") }).HLLibrary;
@@ -418,6 +431,38 @@ test("interface: nenhum innerHTML/outerHTML/insertAdjacentHTML/document.write no
     fs.readdirSync(dir).filter((n) => n.endsWith(".js") && n !== "CSInterface.js").forEach((n) => {
         const code = fs.readFileSync(path.join(dir, n), "utf8").replace(/\/\/.*$/gm, "");   // ignora comentários
         assert.ok(!/\.(innerHTML|outerHTML)\s*[+]?=|insertAdjacentHTML|document\.write/.test(code), n);
+    });
+});
+
+test("interface: todos os scripts estão no index.html, na ordem certa", () => {
+    const html = read("client/index.html");
+    const order = [...html.matchAll(/<script src="js\/([^"]+)"/g)].map((m) => m[1]);
+    const files = Object.keys(panelSources()).concat("CSInterface.js").sort();
+    eq(order.slice().sort(), files, "script faltando ou sobrando no index.html");
+    assert.strictEqual(order[0], "config.js", "config.js tem que vir primeiro");
+    const pos = (n) => order.indexOf(n);
+    ["library.js", "previews.js", "player.js", "bridge.js"].forEach((n) => assert.ok(pos(n) < pos("app.js"), n + " antes do app.js"));
+    UI_FILES.forEach((n) => assert.ok(pos(n) >= pos("app.js"), n + " depois do app.js"));
+    assert.strictEqual(order[order.length - 1], "main.js", "main.js tem que vir por último");
+    // um arquivo da interface só pode chamar app.x de algo que algum arquivo registra
+    const src = panelSources();
+    const registered = new Set();
+    UI_FILES.forEach((n) => { for (const m of src[n].matchAll(/^\s*app\.([\w$]+) = /gm)) registered.add(m[1]); });
+    UI_FILES.forEach((n) => {
+        for (const m of src[n].replace(/^\s*\/\/.*$/gm, "").matchAll(/\bapp\.([\w$]+)/g)) assert.ok(registered.has(m[1]), n + " usa app." + m[1] + ", que ninguém registra");
+    });
+    // e não pode usar direto (sem app.) um nome que só existe em outro arquivo
+    const topNames = {};
+    UI_FILES.forEach((n) => { for (const m of src[n].matchAll(/^    (?:function|var) ([\w$]+)/gm)) topNames[m[1]] = n; });
+    UI_FILES.forEach((n) => {
+        const code = src[n].replace(/^\s*\/\/.*$/gm, "").replace(/"(?:[^"\\]|\\.)*"/g, '""');
+        const own = new Set([...code.matchAll(/(?:function|var|,)\s+([\w$]+)\s*(?:=|\()/g)].map((m) => m[1]));
+        Object.keys(topNames).forEach((name) => {
+            if (name === "app" || topNames[name] === n || own.has(name)) return;
+            // (nome seguido de ":" é campo de objeto, não uso)
+            const re = new RegExp("(^|[^.\\w$])" + name.replace(/\$/g, "\\$") + "(?![\\w$])(?!\\s*:)", "m");
+            assert.ok(!re.test(code), n + " usa " + name + " (de " + topNames[name] + ") sem importar de app");
+        });
     });
 });
 
@@ -460,7 +505,9 @@ function loadBridge(hostCtx) {
         }
     };
     ctx.window = ctx;
+    ctx.console = { log() {}, warn() {}, error() {} };
     vm.createContext(ctx);
+    vm.runInContext(read("client/js/config.js"), ctx, { filename: "config.js" });
     vm.runInContext(read("client/js/bridge.js") + "\nthis.HLBridge = HLBridge;", ctx, { filename: "bridge.js" });
     return ctx.HLBridge;
 }
