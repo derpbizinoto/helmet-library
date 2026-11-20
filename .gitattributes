@@ -1,0 +1,4 @@
+# Scripts do Windows precisam de fim de linha CRLF (o cmd se perde com LF)
+*.bat text eol=crlf
+# O .reg é UTF-16 (formato do Editor do Registro): não mexer nas quebras de linha
+*.reg -text

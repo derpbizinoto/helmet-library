@@ -6,10 +6,22 @@ Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (V
 
 ## Instalação
 
+### Jeito fácil (Windows)
+
 1. Feche o Premiere.
-2. Rode `instalar.bat` (fica uma pasta acima desta). Ele copia a extensão para `%APPDATA%\Adobe\CEP\extensions\` e libera extensões não assinadas (`PlayerDebugMode`).
-   Alternativa manual: copiar esta pasta para `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\` e rodar `Add Keys.reg`.
-3. No Premiere: **Window › Extensions › Helmet Library**.
+2. Dê dois cliques no **`instalar.bat`** (fica ao lado da pasta `premiere-helmet-library`). Ele copia a extensão para `%APPDATA%\Adobe\CEP\extensions\premiere-helmet-library` e libera extensões não assinadas (`PlayerDebugMode`). Não precisa de administrador.
+3. No Premiere: **Janela › Extensões › Helmet Library** (*Window › Extensions › Helmet Library*).
+
+### Jeito manual
+
+1. Feche o Premiere.
+2. Copie a pasta `premiere-helmet-library` para `C:\Users\<você>\AppData\Roaming\Adobe\CEP\extensions\` (sem o arquivo `.debug`, se ele existir).
+3. Dê dois cliques em **`Add Keys.reg`** se ainda não tiver feito isso para outra extensão Helmet (faz o mesmo que o passo de liberação do instalador).
+4. No Premiere: **Janela › Extensões › Helmet Library**.
+
+### Primeiro uso
+
+Clique em **Adicionar pasta** (embaixo, na barra da esquerda) e escolha uma pasta do computador com seus sons, vídeos, imagens, MOGRTs… Pode adicionar quantas pastas quiser; as subpastas aparecem na árvore do lado esquerdo.
 
 ## Como usar
 
@@ -76,4 +88,17 @@ premiere-helmet-library/
 
 ## Depuração
 
-Com o painel aberto, acesse `http://localhost:8099` no Chrome (arquivo `.debug`). Aberto direto num navegador, o `client/index.html` entra em modo de demonstração com uma biblioteca de exemplo, útil para mexer no layout.
+O arquivo `premiere-helmet-library/.debug` liga a porta de depuração 8099 (com o painel aberto, acesse `http://localhost:8099` no Chrome). Ele **não fica no git e não vai na instalação** de quem usa a extensão: com o Node ligado, quem se conecta nessa porta consegue rodar programas no computador. Para depurar na sua máquina, crie o arquivo com o conteúdo abaixo e copie a pasta da extensão à mão (o `instalar.bat` apaga o `.debug`).
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<ExtensionList>
+    <Extension Id="com.seuestudio.helmetlibrary.panel">
+        <HostList>
+            <Host Name="PPRO" Port="8099" />
+        </HostList>
+    </Extension>
+</ExtensionList>
+```
+
+Aberto direto num navegador, o `client/index.html` entra em modo de demonstração com uma biblioteca de exemplo, útil para mexer no layout.
