@@ -12,7 +12,7 @@ var HLBridge = (function () {
     "use strict";
 
     // Funções do host que o painel pode chamar.
-    var FUNCTIONS = ["hl_add", "hl_takePlaceholder", "hl_placeAt", "hl_getHostVersion"];
+    var FUNCTIONS = ["hl_add", "hl_takePlaceholder", "hl_placeMogrt", "hl_getHostVersion"];
 
     var available = typeof window !== "undefined" && typeof window.__adobe_cep__ !== "undefined" &&
         typeof CSInterface === "function";

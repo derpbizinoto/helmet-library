@@ -59,21 +59,19 @@
         });
     }
 
-    // ---------- arrastar vídeo e MOGRT com imagem provisória (1.3.4 MOGRT, 1.3.5 vídeo) ----------
-    // O Premiere não aceita .mogrt arrastado de um painel (teste 2.11) e, com vídeo que ainda não
-    // está no projeto, trazia só o áudio (teste 2.8). Importar o vídeo ao começar a arrastar
-    // (1.3.1 a 1.3.3) resolvia o vídeo, mas trazia o painel Project para a frente.
-    // Agora o arrasto leva, no lugar do vídeo/MOGRT, uma imagem provisória com o nome dele
-    // (library.js); imagem entra arrastando sem problema e sem abrir o Project. Depois de soltar:
+    // ---------- arrastar MOGRT com imagem provisória (1.3.4) ----------
+    // O Premiere não aceita .mogrt arrastado de um painel (teste 2.11). O arrasto leva, no lugar do
+    // MOGRT, uma imagem provisória com o nome dele (library.js); imagem entra arrastando sem problema.
+    // Depois de soltar:
     //   1. o host acha cada imagem na sequência ativa, anota onde ela ficou e tira (timeline e projeto);
-    //   2. coloca o item de verdade nesse lugar, um depois do outro se eram vários em fila.
-    // Imagem que só aparece no projeto até a última conferência foi solta no painel Project:
-    // o vídeo é importado na bin; o MOGRT não (o Premiere não aceita MOGRT no Project e abre um aviso).
+    //   2. coloca o MOGRT nesse lugar, um depois do outro se eram vários em fila.
+    // Imagem que só aparece no projeto até a última conferência foi solta no painel Project: o MOGRT
+    // não é importado (o Premiere não aceita MOGRT no Project e abre um aviso).
     // Arrasto cancelado: não há imagem em lugar nenhum e nada acontece.
-    // Áudio e imagem continuam indo direto (já entravam certo).
+    // Vídeo, áudio e imagem vão direto (vídeo do jeito do Animation Composer: ver grid.js).
 
     function dragPath(f) {
-        if (!inCEP || (f.kind !== "mogrt" && f.kind !== "video")) return null;
+        if (!inCEP || f.kind !== "mogrt") return null;
         try { return L.dragPlaceholder(f.path); } catch (e) {
             HL.log("imagem provisória falhou", f.path, e);
             return null;   // arrasta o arquivo como antes
@@ -109,28 +107,21 @@
         return round();
     }
 
-    // Fase 2: coloca cada item no lugar da imagem dele. Imagens em fila na mesma trilha
-    // (uma começando onde a outra acabava) viram itens em fila, cada um com a duração real.
+    // Fase 2: coloca cada MOGRT no lugar da imagem dele. Imagens em fila na mesma trilha
+    // (uma começando onde a outra acabava) viram MOGRTs em fila, cada um com a duração real.
     function placeItems(swaps) {
         var prev = null, results = [];
         return swaps.reduce(function (chain, s) {
             return chain.then(function () {
-                var b = binFor(s.file);
                 if (s.error) { results.push({ error: s.file.name + ": " + s.error }); return; }
-                if (s.toProject) {
-                    if (s.file.kind === "mogrt") { results.push({ warning: "“" + s.file.name + "”: MOGRT não entra no painel Project. Arraste para a timeline ou use Adicionar." }); return; }
-                    return HLBridge.call("hl_add", [s.file.path, "video", false, b.bin, b.sub]).then(function (d) {
-                        results.push({ ok: "“" + d.name + "” importado no projeto" });
-                    }, function (err) { results.push({ error: s.file.name + ": " + err.message }); });
-                }
+                if (s.toProject) { results.push({ warning: "“" + s.file.name + "”: MOGRT não entra no painel Project. Arraste para a timeline ou use Adicionar." }); return; }
                 if (!s.spot) return;   // arrasto cancelado
                 var start = s.spot.seconds, ticks = s.spot.ticks;
                 if (prev && prev.spot.track === s.spot.track && Math.abs(s.spot.seconds - prev.spot.end) < 0.05 && prev.placedEnd > start) {
                     start = prev.placedEnd;
                     ticks = "";   // o host calcula pelos segundos
                 }
-                var kind = s.file.kind === "mogrt" ? "mogrt" : "video";
-                return HLBridge.call("hl_placeAt", [s.file.path, kind, b.bin, b.sub, s.spot.track, start, ticks]).then(function (d) {
+                return HLBridge.call("hl_placeMogrt", [s.file.path, s.spot.track, start, ticks]).then(function (d) {
                     s.placedEnd = d.end;
                     prev = s;
                     results.push({ ok: "“" + d.name + "” na trilha " + d.track });

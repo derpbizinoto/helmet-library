@@ -3,12 +3,12 @@
 // opcionalmente espelhando as subpastas) e coloca o clipe na timeline, na posição da agulha,
 // na primeira trilha livre. MOGRTs entram com sequence.importMGT().
 //
-// O painel só chama as funções públicas (hl_add, hl_takePlaceholder, hl_placeAt, hl_getHostVersion) pela ponte única
+// O painel só chama as funções públicas (hl_add, hl_takePlaceholder, hl_placeMogrt, hl_getHostVersion) pela ponte única
 // (client/js/bridge.js), com cada argumento como literal JSON. Toda função pública passa
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.5";
+var HL_HOST_VERSION = "1.3.6";
 
 // ---------- respostas ----------
 
@@ -108,11 +108,11 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
     }, "Erro ao adicionar: ");
 }
 
-// ---------- arrastar vídeo e MOGRT com imagem provisória ----------
-// O painel arrasta uma imagem provisória (placeholder) no lugar do vídeo ou MOGRT: o Premiere não
-// aceita .mogrt arrastado de um painel, e vídeo fora do projeto entrava só com o áudio. Depois de
-// soltar, o painel chama hl_takePlaceholder para cada imagem e, em seguida, hl_placeAt para colocar
-// o item de verdade no lugar dela.
+// ---------- arrastar MOGRT com imagem provisória ----------
+// O painel arrasta uma imagem provisória (placeholder) no lugar do MOGRT: o Premiere não aceita
+// .mogrt arrastado de um painel. Depois de soltar, o painel chama hl_takePlaceholder para cada
+// imagem e, em seguida, hl_placeMogrt para colocar o MOGRT no lugar dela.
+// (Vídeo arrastado vai direto, sem nada disso: ver client/js/grid.js.)
 
 // Acha os clipes da imagem na sequência ativa, tira todos e tira a imagem do projeto.
 // Devolve onde estava o primeiro: { found, track, ticks, seconds, end }.
@@ -145,56 +145,32 @@ function hl_takePlaceholder(placeholder, lastTry) {
     }, "Erro ao trocar a imagem provisória: ");
 }
 
-// Coloca o vídeo ou MOGRT na sequência ativa, na trilha de vídeo vIndex, no tempo seconds
+// Coloca o MOGRT na sequência ativa, na trilha de vídeo vIndex, no tempo seconds
 // (ticks, se veio, é a posição exata; "" = calcula pelos segundos).
-// Vídeo: usa a mesma trilha se V e A desse número estão livres durante todo o clipe; senão vai
-// para a primeira trilha livre no mesmo tempo (nunca cobre o que já está na timeline).
-function hl_placeAt(path, kind, binName, subPath, vIndex, seconds, ticks) {
+function hl_placeMogrt(path, vIndex, seconds, ticks) {
     return hl_run(function () {
         if (!app.project) throw hl_userError("Nenhum projeto aberto.");
         var seq = app.project.activeSequence;
-        if (!seq) throw hl_userError("Abra uma sequência para adicionar.");
+        if (!seq) throw hl_userError("Abra uma sequência para adicionar o MOGRT.");
         var f = new File(String(path));
         if (!f.exists) throw hl_userError("Arquivo não encontrado (foi movido, apagado ou está num HD/pasta de rede desconectado).");
         var start = Number(seconds) || 0;
         var t = (ticks !== undefined && ticks !== null && String(ticks) !== "") ? String(ticks) : hl_ticksOf(start);
         var idx = Number(vIndex) || 0;
-
-        if (kind === "mogrt") {
-            var aIdx = hl_findFreeIndex(seq, start, start + 1, false, true);
-            if (aIdx < 0) aIdx = 0;
-            var ti = null;
-            try { ti = seq.importMGT(f.fsName, t, idx, aIdx); } catch (e1) { ti = null; }
-            if (!ti) throw hl_userError("O Premiere não conseguiu inserir o MOGRT (versão ou template incompatível?).");
-            var nm = "", end = start + 5;
-            try { nm = ti.name; } catch (e2) { nm = f.displayName; }
-            try { end = ti.end.seconds; } catch (e3) { /* mantém */ }
-            return { name: nm, track: "V" + (idx + 1), end: end };
-        }
-
-        var imp = hl_importToBin(f.fsName, hl_targetBin(String(binName || ""), String(subPath || "")));
-        if (!imp.item) throw hl_userError("O Premiere não conseguiu importar este arquivo.");
-        var stop = start + hl_itemDuration(imp.item, "video");
-        var useIdx = idx;
-        var vt = seq.videoTracks[idx], at = seq.audioTracks[idx];
-        if (!vt || !at || !hl_trackFree(vt, start, stop) || !hl_trackFree(at, start, stop)) {
-            var free = hl_freeIndexOrNewTrack(seq, start, stop, true, true);
-            seq = free.seq;
-            useIdx = free.index;
-            if (useIdx < 0) throw hl_userError("Não há trilha livre onde o vídeo foi solto. Abra espaço ou crie uma trilha.");
-        }
-        if (!hl_overwrite(seq.videoTracks[useIdx], imp.item, hl_timeAt(t, start))) throw hl_userError("O Premiere recusou colocar o clipe na timeline.");
-        return { name: imp.item.name, track: "V" + (useIdx + 1), end: stop };
+        var aIdx = hl_findFreeIndex(seq, start, start + 1, false, true);
+        if (aIdx < 0) aIdx = 0;
+        var ti = null;
+        try { ti = seq.importMGT(f.fsName, t, idx, aIdx); } catch (e1) { ti = null; }
+        if (!ti) throw hl_userError("O Premiere não conseguiu inserir o MOGRT (versão ou template incompatível?).");
+        var nm = "", end = start + 5;
+        try { nm = ti.name; } catch (e2) { nm = f.displayName; }
+        try { end = ti.end.seconds; } catch (e3) { /* mantém */ }
+        return { name: nm, track: "V" + (idx + 1), end: end };
     }, "Erro ao adicionar: ");
 }
 
 var HL_TICKS_PER_SECOND = 254016000000;
 function hl_ticksOf(seconds) { return String(Math.round(seconds * HL_TICKS_PER_SECOND)); }
-
-// Objeto Time do Premiere na posição exata; se não der, o hl_overwrite tenta segundos e ticks.
-function hl_timeAt(ticks, seconds) {
-    try { var tm = new Time(); tm.ticks = String(ticks); return tm; } catch (e) { return { seconds: seconds, ticks: String(ticks) }; }
-}
 
 // Clipes da imagem provisória nas trilhas de vídeo da sequência: { clip, track, ticks, seconds, end }.
 function hl_placeholderClips(seq, wanted) {

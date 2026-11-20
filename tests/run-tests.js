@@ -625,7 +625,7 @@ function copiesOf(bin, file, out) {
     return out;
 }
 
-// Arrastar vídeo e MOGRT (1.3.4 / 1.3.5): imagem provisória trocada pelo item depois de soltar.
+// Arrastar MOGRT (1.3.4): imagem provisória trocada pelo MOGRT depois de soltar.
 test("arrastar: imagem provisória com o nome do arquivo, fora do cache de previews", () => {
     const appData = tmpDir("cfg");
     const L = loadLibrary(appData);
@@ -695,36 +695,18 @@ test("arrastar: MOGRT entra no lugar da imagem (tempo exato e trilha)", async ()
     const bridge = loadBridge(host);
     const [x] = dragFiles(["Título.mogrt"]);
     const seq = host.app.project.activeSequence;
-    const d = await bridge.call("hl_placeAt", [x.f, "mogrt", "Helmet Library", "", 1, 4, mock.time(4).ticks]);
+    const d = await bridge.call("hl_placeMogrt", [x.f, 1, 4, mock.time(4).ticks]);
     eq(d, { name: "Título", track: "V2", end: 9 });
     eq(seq.mgts.map((m) => [m.v, String(m.ticks)]), [[1, mock.time(4).ticks]]);
-});
-
-test("arrastar: vídeo entra no lugar da imagem com V e A; não cobre o que já está na timeline", async () => {
-    const host = loadHost();
-    const bridge = loadBridge(host);
-    const [a, b] = dragFiles(["a.mp4", "b.mp4"]);
-    const seq = host.app.project.activeSequence;
-
-    const d = await bridge.call("hl_placeAt", [a.f, "video", "Helmet Library", "Sub", 0, 2, ""]);
-    eq(d, { name: "a.mp4", track: "V1", end: 12 });
-    assert.strictEqual(seq.videoTracks[0].clips[0].start.seconds, 2);
-    assert.strictEqual(copiesOf(host.app.project.rootItem.children[0], a.f).length, 1, "importado na bin Helmet Library");
-
-    // A2 ocupado no meio do caminho: vai para a primeira trilha com V e A livres no mesmo tempo (V1)
-    seq.audioTracks[1].overwriteClip(new mock.ClipItem("x.wav", 3), 20);
-    const e = await bridge.call("hl_placeAt", [b.f, "video", "Helmet Library", "", 1, 15, ""]);
-    assert.strictEqual(e.track, "V1");
-    assert.strictEqual(seq.audioTracks[1].clips.length, 1, "o áudio que já estava continua lá");
 });
 
 test("arrastar: arquivo que sumiu ou sem sequência aberta dá mensagem clara", async () => {
     const host = loadHost({ sequence: null });
     const bridge = loadBridge(host);
-    const [a] = dragFiles(["a.mp4"]);
-    await assert.rejects(bridge.call("hl_placeAt", [a.f, "video", "", "", 0, 0, ""]), /Abra uma sequência/);
+    const [a] = dragFiles(["a.mogrt"]);
+    await assert.rejects(bridge.call("hl_placeMogrt", [a.f, 0, 0, ""]), /Abra uma sequência/);
     const host2 = loadHost();
-    await assert.rejects(loadBridge(host2).call("hl_placeAt", [a.f + "x", "video", "", "", 0, 0, ""]), /Arquivo não encontrado/);
+    await assert.rejects(loadBridge(host2).call("hl_placeMogrt", [a.f + "x", 0, 0, ""]), /Arquivo não encontrado/);
 });
 
 test("host: timeline na primeira trilha livre; cria trilha quando todas estão ocupadas", async () => {

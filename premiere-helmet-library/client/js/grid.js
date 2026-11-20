@@ -465,21 +465,30 @@
         var files = (state.selected[it.path] ? selectedFiles() : [it]).filter(app.allowedFile);
         if (!files.length) { e.preventDefault(); return; }
         var dt = e.dataTransfer;
-        // "all": se o Premiere pedir mover/vincular e a origem só permitir copiar, o Windows recusa o drop.
-        // (o navegador nunca apaga nem move o arquivo original ao arrastar para fora)
-        dt.effectAllowed = "all";
-        // Formato do CEP + lista de URLs + caminho em texto. Na 1.0 eram estes três e o vídeo entrava
-        // sempre; mandar só o do CEP (1.1 a 1.2.1) fazia o vídeo falhar ou entrar só o áudio.
-        // Vídeo e MOGRT vão como imagem provisória, trocada pelo item depois de soltar (host.js).
+        // MOGRT vai como imagem provisória, trocada pelo MOGRT depois de soltar (host.js).
         var swaps = [];
         var paths = files.map(function (f) {
             var ph = app.dragPath(f);
             if (ph) swaps.push({ file: f, placeholder: ph });
             return ph || f.path;
         });
-        paths.forEach(function (fp, n) { dt.setData("com.adobe.cep.dnd.file." + n, fp); });
-        dt.setData("text/uri-list", paths.map(function (fp) { return L.toFileUrl(fp); }).join("\r\n"));
-        dt.setData("text/plain", paths.join("\n"));
+        if (files.some(function (f) { return f.kind === "video"; })) {
+            // VÍDEO (1.3.6): igual ao Animation Composer, que arrasta vídeo sem o Premiere abrir o
+            // painel Project. Para vídeo comum ele manda SÓ o caminho do arquivo verdadeiro no formato
+            // do CEP (com.adobe.cep.dnd.file.N): sem lista de URLs, sem texto, sem mexer no
+            // effectAllowed, sem importar antes e sem nada depois de soltar. O Premiere importa ao soltar.
+            // Num arrasto que tem vídeo, os outros arquivos vão do mesmo jeito.
+            paths.forEach(function (fp, n) { dt.setData("com.adobe.cep.dnd.file." + n, fp); });
+        } else {
+            // Áudio, imagem e MOGRT (sem vídeo no arrasto): como antes.
+            // "all": se o Premiere pedir mover/vincular e a origem só permitir copiar, o Windows recusa o drop.
+            // (o navegador nunca apaga nem move o arquivo original ao arrastar para fora)
+            dt.effectAllowed = "all";
+            // Formato do CEP + lista de URLs + caminho em texto.
+            paths.forEach(function (fp, n) { dt.setData("com.adobe.cep.dnd.file." + n, fp); });
+            dt.setData("text/uri-list", paths.map(function (fp) { return L.toFileUrl(fp); }).join("\r\n"));
+            dt.setData("text/plain", paths.join("\n"));
+        }
         try { dt.setDragImage(ghostFor(files), 14, 14); } catch (err) { /* usa a imagem padrão */ }
         state.dragging = { files: files, el: el, swaps: swaps };
         el.classList.add("dragging");
@@ -490,7 +499,7 @@
         var d = state.dragging;
         state.dragging = null;
         if (d && d.el) d.el.classList.remove("dragging");
-        if (d) app.afterDrag(d.swaps);   // troca as imagens provisórias pelos vídeos/MOGRTs
+        if (d) app.afterDrag(d.swaps);   // troca as imagens provisórias pelos MOGRTs
         var outside = e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight;
         var effect = e.dataTransfer ? e.dataTransfer.dropEffect : "";
         // O dropEffect que volta de outro programa não é confiável (vinha "none" mesmo quando o Premiere

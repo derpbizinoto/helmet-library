@@ -58,10 +58,10 @@
         return path.join(base, APP_NAME, "cache");
     }
 
-    // ---------- arrastar vídeo e MOGRT (1.3.4 / 1.3.5) ----------
-    // O Premiere não aceita .mogrt arrastado de um painel, e vídeo fora do projeto entrava só com o
-    // áudio. Arrasta-se no lugar uma imagem provisória com o nome do arquivo (imagem entra arrastando
-    // sem problema); ao soltar, o host troca a imagem pelo item na mesma posição. Fica em
+    // ---------- arrastar MOGRT (1.3.4) ----------
+    // O Premiere não aceita .mogrt arrastado de um painel. Arrasta-se no lugar uma imagem provisória
+    // com o nome do arquivo (imagem entra arrastando sem problema); ao soltar, o host troca a imagem
+    // pelo MOGRT na mesma posição. Fica em
     // %LOCALAPPDATA%\Helmet Library\arrastar (fora do cache de previews, então "Limpar previews" não
     // mexe nela). Uma pasta por arquivo, para o nome ficar igual.
     var PLACEHOLDER_PNG = "iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA0UlEQVR42u3SQREAAAzCMPzg3x8itmciodcUDiIBBsJAGAgDgYEwEAbCQGAgDISBMBAYCANhIAwEBsJAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMBAbCQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA/Fpr4vTWZGX4dwAAAAASUVORK5CYII=";
