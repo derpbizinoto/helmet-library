@@ -257,3 +257,69 @@ eu não tenho como abri-lo.
 
 **Fase 1 encerrada. Aguardando sua aprovação — da lista de funções (seção 2), das decisões
 D1 a D6 e do plano — antes de alterar qualquer coisa.**
+
+---
+
+## 7. Situação final — versão 1.3.0
+
+Data: 20/11/2026 · Branch `limpeza-seguranca` (ainda **não** juntada à `main`) · 12 etapas,
+um commit cada (`3cb67da` a este). Testes automáticos: **36 de 36** passando
+(`node tests/run-tests.js`). Pacote: `empacotar.ps1` gera `dist\HelmetLibrary-1.3.0.zip`
+sem `.debug`, certificados, testes nem auditoria.
+
+### O que foi resolvido
+
+| Item | Situação | Onde |
+|---|---|---|
+| A1 `.debug` na instalação | Resolvido: fora do git, o `instalar.bat` apaga, o `empacotar.ps1` recusa | etapas 1–2 |
+| A2 `config.json` corrompido | Resolvido: backup `.bak`, arquivo estragado guardado à parte, aviso ao usuário, campos conferidos | etapa 3 |
+| M1 `attrib` por texto | Resolvido: `execFile` com caminho completo, lista de argumentos e tempo limite | etapa 6 |
+| M2 Explorer pelo nome | Resolvido: caminho completo da pasta do Windows | etapa 6 |
+| M3 atalhos de pasta | Resolvido (D4): só seguidos se apontarem para dentro da mesma biblioteca; sem "círculo" | etapa 4 |
+| M4 Limpar previews | Resolvido (D3): só nomes de preview, confirmação com quantidade e tamanho, nunca através de atalho | etapa 4 |
+| M5 leitor de MOGRT | Resolvido: limites de tamanho, leitura assíncrona, arquivo danificado recusado | etapa 5 |
+| M6 `innerHTML` | Resolvido: nenhum `innerHTML` com dados; tela conferida igual no modo demonstração | etapa 7 |
+| M7 `PlayerDebugMode` | **Pendente (D2)**: depende de assinar a extensão (`.zxp`), como no Helmet Cutter e no Helmet DL | — |
+| B1 ponte com o Premiere | Resolvido: `bridge.js` com JSON (inclusive U+2028/U+2029), lista de funções permitidas, host sempre `{ok, data, error}` | etapa 8 |
+| B2 cache de outro PC | Resolvido: `.json` de preview conferido campo a campo | etapa 4 |
+| B3 segunda trava | Resolvido: só vai ao Premiere arquivo de biblioteca ou favorito (botões e arrastar) | etapa 4 |
+| B4 CSP | Resolvido: CSP no `index.html` sem script embutido nem internet | etapa 7 |
+| R1 pasta só leitura | Resolvido: falha só daquele preview + aviso sugerindo "Cache do sistema" | etapa 9 |
+| R2 busca | Resolvido: índice em memória por 30 s (vigia, Atualizar e opção de desconhecidos apagam) + aviso acima de 20.000 | etapa 9 |
+| R3 leituras síncronas | Resolvido na navegação e nos previews (árvore, favoritos, início, cache). Restam síncronas: a leitura/gravação do `config.json` (arquivo pequeno em `%APPDATA%`), a criação da pasta de previews e o apagar do "Gerar preview de novo" (poucos arquivos pequenos) | etapa 9 |
+| R4 pasta desconectada | Resolvido: mensagens claras, biblioteca marcada e conferida de novo (abrir, clicar, atualizar, voltar ao painel), vigia religado, aviso de favoritos não encontrados | etapa 9 |
+| R5 áudio grande no player | Resolvido (D5): acima de 300 MB, player simples sem Pitch/Reverse | etapa 9 |
+| R6 grade com milhares de cards | **Não mexido** (registrado): grade virtual seria reescrita grande | — |
+| R7 cache só cresce | **Não mexido** (registrado): seria recurso novo; "Limpar previews" resolve | — |
+| L1 `main.js` gigante | Resolvido: `app.js`, `tree.js`, `grid.js`, `host.js`, `libraries.js`, `menus.js`, `settings.js`, `main.js`. Dois arquivos a mais que o planejado (`app.js` com a base comum e `libraries.js`), para nenhum ficar grande demais | etapa 10 |
+| L2 constantes | Resolvido: `config.js` | etapa 10 |
+| L3 duplicações | Resolvido (favoritar vários, ordenação, limpeza de cache, `listDir`, `.jsx`). Os dois formatadores de tempo ficaram: mostram formatos diferentes de propósito (`1:05` no card, `00:01:05:12` no player) | etapas 4, 8, 10 |
+| L4 código sem uso | Resolvido | etapas 8, 10 |
+| L5 logger | Resolvido: `HL.log` (só com `DEBUG: true`) e `HL.warn` | etapa 10 |
+| L6 mensagens | Resolvido | etapas 3, 8, 9, 11 |
+| L7–L12, L14, L15 | Resolvidos | etapas 1, 2, 8, 12 |
+| L13 ID `com.seuestudio…` | **Não mudado** de propósito (mudaria a extensão para o Premiere) | — |
+| D1 | `como instalar.txt` removido; `Add Keys.reg` e `demo.js` mantidos | etapa 1 |
+| D6 | Versão 1.3.0 nos quatro lugares (conferido pelo `empacotar.ps1`) | etapa 12 |
+
+### P1 — problema antigo encontrado nos testes (mantido de propósito)
+
+Ao colocar um **vídeo** na timeline, a extensão procura V e A livres **com o mesmo número**.
+Quando ela mesma cria trilhas, elas podem ficar desencontradas e o vídeo é recusado mesmo
+havendo espaço. Exemplo: sequência só com V1/A1, agulha parada, adicionar dois áudios (o
+segundo cria a A2) e depois um vídeo → a extensão cria V2/A3, procura o par V2/A2 (A2
+ocupada) e diz "Não há trilha livre na posição da agulha".
+
+Já era assim na 1.2.3; como a regra era não mudar comportamento, ficou igual e há um teste
+que documenta isso (`host: vídeo usa V e A livres no mesmo número de trilha`). **Correção
+sugerida para uma próxima versão:** depois de criar trilhas, procurar de novo o primeiro
+número em que V **e** A estejam livres e, se não houver, criar só o que falta (V ou A) até
+os dois coincidirem.
+
+### Pendências
+
+1. **Testar no Premiere** com o `TESTES.md` (eu não tenho como abrir o Premiere).
+2. **D2 / M7 — assinatura:** gerar certificado, assinar o `.zxp` e então tirar o
+   `PlayerDebugMode` do instalador (o certificado nunca vai para o git: o `.gitignore` já cobre).
+3. **Juntar a branch** `limpeza-seguranca` na `main` depois dos testes.
+4. Melhorias futuras registradas: P1, R6, R7.
