@@ -220,6 +220,34 @@ test("pastas: busca avisa quando passa do limite", async () => {
     assert.ok(!(await L.walk(lib, { root: lib })).truncated);
 });
 
+test("pastas: biblioteca removida/renomeada ou HD desligado dá aviso claro, sem travar", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    touch(path.join(lib, "ok.wav"));
+    const gone = path.join(lib, "renomeada");
+    assert.strictEqual(await L.existsAsync(lib), true);
+    assert.strictEqual(await L.existsAsync(gone), false);
+    assert.strictEqual(await L.fileEntry(path.join(gone, "x.wav")), null);
+    assert.strictEqual((await L.fileEntry(path.join(lib, "ok.wav"))).name, "ok.wav");
+    const err = await L.listDir(gone, { root: lib }).then(() => null, (e) => e);
+    assert.ok(err, "pasta que sumiu deve dar erro");
+    assert.match(L.describeError(err, "folder"), /HD externo ou na rede/);
+    assert.match(L.describeError({ code: "ENOENT" }, "file"), /movido, apagado/);
+    assert.match(L.describeError({ code: "EACCES" }, "write"), /Cache do sistema/);
+    assert.match(L.describeError({ code: "ENOSPC" }, "write"), /Disco cheio/);
+    assert.match(L.describeError({ code: "EHOSTUNREACH" }, "folder"), /não respondeu/);
+    assert.strictEqual(L.describeError(new Error("outra coisa"), "folder"), "outra coisa");
+});
+
+test("robustez: navegar e gerar previews não usa leitura síncrona do disco", () => {
+    const main = read("client/js/main.js");
+    const previews = read("client/js/previews.js");
+    assert.ok(!/L\.exists\(/.test(main), "main.js usa L.exists (síncrono)");
+    assert.ok(!/Sync\(/.test(main), "main.js usa função *Sync");
+    assert.ok(!/Sync\(/.test(previews), "previews.js usa função *Sync");
+    assert.match(read("client/js/player.js"), /MAX_AUDIO_BYTES/, "player.js deve desviar áudio grande para o <audio>");
+});
+
 test("cache: Limpar previews só apaga arquivos com nome de preview", async () => {
     const L = loadLibrary(tmpDir("cfg"));
     const cache = path.join(tmpDir("lib"), ".helmet-previews");
@@ -264,6 +292,21 @@ test("previews: .json de cache vindo de outro PC só é aceito no formato espera
     assert.ok(!valid({ v: 1, title: { html: "<b>" } }));
     assert.ok(!valid({ v: 2 }));
     assert.ok(!valid(null));
+});
+
+test("previews: cache corrompido ou incompleto é refeito, sem travar", async () => {
+    const ctx = loadPanel(["client/js/library.js", "client/js/previews.js"], { APPDATA: tmpDir("cfg") });
+    const readCached = ctx.HLPreviews._readCached;
+    const dir = tmpDir("cache");
+    const ci = { dir, base: path.join(dir, "0123456789abcdef01234567") };
+    assert.strictEqual(await readCached(ci), null, "sem cache");
+    touch(ci.base + ".json", "{ isso não é json");
+    assert.strictEqual(await readCached(ci), null, "json estragado");
+    touch(ci.base + ".json", JSON.stringify({ v: 1, hasThumb: true, duration: 2 }));
+    assert.strictEqual(await readCached(ci), null, "falta a miniatura .jpg");
+    touch(ci.base + ".jpg", "x");
+    const res = await readCached(ci);
+    assert.ok(res && /^file:\/\//.test(res.thumb) && res.meta.duration === 2);
 });
 
 // ---------------------------------------------------------------------------

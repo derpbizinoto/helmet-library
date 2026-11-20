@@ -128,7 +128,9 @@
             show("audio");
             state.peaks = prev && prev.meta && prev.meta.peaks || null;
             redrawWave();
-            P.decodeFile(file.path).then(function (buf) {
+            // arquivo muito grande: decodificar inteiro na memória travaria o painel
+            var decoding = file.size > P.MAX_AUDIO_BYTES ? Promise.reject(new Error("grande demais")) : P.decodeFile(file.path);
+            decoding.then(function (buf) {
                 if (token !== state.token) return;
                 state.buffer = buf;
                 els.total.textContent = fmt(buf.duration);
@@ -136,7 +138,7 @@
                 if (autoplay || state.pendingPlay) { state.pendingPlay = false; play(); }
             }, function () {
                 if (token !== state.token) return;
-                // sem Web Audio: toca pelo elemento <audio> (sem pitch/reverse)
+                // sem Web Audio (ou arquivo grande): toca pelo elemento <audio> (sem pitch/reverse)
                 var a = new Audio(window.HLLibrary.toFileUrl(file.path));
                 a.volume = state.volume;
                 a.addEventListener("ended", function () { if (state.loop) { a.currentTime = 0; a.play(); } else setPlayingUi(false); });

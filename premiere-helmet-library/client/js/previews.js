@@ -72,7 +72,7 @@
             // deste arquivo, em vez de deixar a fila presa para sempre
             Promise.resolve(job).then(run).then(function (j, res) { finish(j, res); }.bind(null, job), function (j, err) {
                 console.warn("Helmet Library: preview falhou", j.file.path, err);
-                finish(j, { thumb: null, video: null, meta: { error: String(err && err.message || err) } });
+                finish(j, { thumb: null, video: null, meta: { error: errorText(err, j.file, null) } });
             }.bind(null, job));
         }
     }
@@ -88,30 +88,46 @@
 
     // ---------- trabalho ----------
 
+    // Texto do erro para a dica do card. Erros de disco viram mensagem clara; os de gravação
+    // no cache (pasta só leitura, disco cheio) também avisam o painel uma vez.
+    function errorText(err, file, ci) {
+        if (!(err && err.code)) return String(err && err.message || err);
+        var writing = ci && err.path && L.isInside(err.path, ci.dir);
+        var msg = L.describeError(err, writing ? "write" : "file");
+        if (writing) problemHandler(msg);
+        return msg;
+    }
+
+    var problemHandler = function () { };
+
+    function noop() { }
+
     function run(job) {
         var file = job.file;
         if (!file.canPreview) return Promise.resolve({ thumb: null, video: null, meta: { none: true } });
         var ci = L.cacheInfo(getCfg(), file);
-        var cached = readCached(ci);
-        if (cached) return Promise.resolve(cached);
-        L.ensureCacheDir(ci.dir);
+        return readCached(ci).then(function (cached) {
+            if (cached) return cached;
+            try { L.ensureCacheDir(ci.dir); } catch (e) {
+                // sem pasta de cache (só leitura, atalho…): falha só deste arquivo, sem gravar nada
+                return result(ci, { v: VERSION, error: errorText(e, file, ci) });
+            }
 
-        var work;
-        if (file.kind === "image") work = imageThumb(file, ci);
-        else if (file.kind === "video") work = videoThumb(L.toFileUrl(file.path), ci, {});
-        else if (file.kind === "audio") work = audioThumb(file, ci);
-        else if (file.kind === "mogrt") work = mogrtThumb(file, ci);
-        else work = Promise.resolve({ none: true });
+            var work;
+            if (file.kind === "image") work = imageThumb(file, ci);
+            else if (file.kind === "video") work = videoThumb(L.toFileUrl(file.path), ci, {});
+            else if (file.kind === "audio") work = audioThumb(file, ci);
+            else if (file.kind === "mogrt") work = mogrtThumb(file, ci);
+            else work = Promise.resolve({ none: true });
 
-        return work.then(function (meta) {
-            meta.v = VERSION;
-            try { L.fs.writeFileSync(ci.base + ".json", JSON.stringify(meta)); } catch (e) { }
-            return result(ci, meta);
-        }, function (err) {
-            // grava a falha para não tentar de novo a cada abertura (a chave muda se o arquivo mudar)
-            var meta = { v: VERSION, error: String(err && err.message || err) };
-            try { L.fs.writeFileSync(ci.base + ".json", JSON.stringify(meta)); } catch (e) { }
-            return result(ci, meta);
+            return work.then(function (meta) {
+                meta.v = VERSION;
+                return writeFile(ci.base + ".json", JSON.stringify(meta)).catch(noop).then(function () { return result(ci, meta); });
+            }, function (err) {
+                // grava a falha para não tentar de novo a cada abertura (a chave muda se o arquivo mudar)
+                var meta = { v: VERSION, error: errorText(err, file, ci) };
+                return writeFile(ci.base + ".json", JSON.stringify(meta)).catch(noop).then(function () { return result(ci, meta); });
+            });
         });
     }
 
@@ -131,14 +147,24 @@
         return true;
     }
 
+    function fileExists(file) {
+        return new Promise(function (resolve) { L.fs.stat(file, function (err) { resolve(!err); }); });
+    }
+
+    // Promise<resultado guardado | null>
     function readCached(ci) {
-        try {
-            var meta = JSON.parse(L.fs.readFileSync(ci.base + ".json", "utf8"));
+        return new Promise(function (resolve) {
+            L.fs.readFile(ci.base + ".json", "utf8", function (err, text) {
+                if (err) return resolve(null);
+                try { resolve(JSON.parse(text)); } catch (e) { resolve(null); }
+            });
+        }).then(function (meta) {
             if (!validMeta(meta)) return null;
-            if (meta.hasThumb && !L.exists(ci.base + ".jpg")) return null;
-            if (meta.videoExt && !L.exists(ci.base + "." + meta.videoExt)) return null;
-            return result(ci, meta);
-        } catch (e) { return null; }
+            return Promise.all([
+                meta.hasThumb ? fileExists(ci.base + ".jpg") : true,
+                meta.videoExt ? fileExists(ci.base + "." + meta.videoExt) : true
+            ]).then(function (ok) { return ok[0] && ok[1] ? result(ci, meta) : null; });
+        });
     }
 
     function result(ci, meta) {
@@ -151,7 +177,7 @@
 
     function saveCanvas(canvas, ci) {
         var b64 = canvas.toDataURL("image/jpeg", 0.84).split(",")[1];
-        L.fs.writeFileSync(ci.base + ".jpg", Buffer.from(b64, "base64"));
+        return writeFile(ci.base + ".jpg", Buffer.from(b64, "base64"));
     }
 
     // desenha a fonte inteira (contain) num quadro 16:9 com fundo escuro
@@ -193,8 +219,9 @@
         return loadImage(L.toFileUrl(file.path)).then(function (img) {
             var w = img.naturalWidth || THUMB_W, h = img.naturalHeight || THUMB_H;
             var alpha = /^(png|gif|webp|svg)$/.test(file.ext);
-            saveCanvas(drawContain(img, w, h, alpha), ci);
-            return { hasThumb: true, width: w, height: h, animated: file.ext === "gif" };
+            return saveCanvas(drawContain(img, w, h, alpha), ci).then(function () {
+                return { hasThumb: true, width: w, height: h, animated: file.ext === "gif" };
+            });
         });
     }
 
@@ -217,10 +244,11 @@
                 if (done) return;
                 try {
                     if (!v.videoWidth) throw new Error("vídeo sem imagem");
-                    saveCanvas(drawContain(v, v.videoWidth, v.videoHeight, false), ci);
+                    var canvas = drawContain(v, v.videoWidth, v.videoHeight, false);
                     var meta = { hasThumb: true, width: v.videoWidth, height: v.videoHeight, duration: isFinite(v.duration) ? v.duration : 0 };
                     for (var k in extra) meta[k] = extra[k];
-                    done = true; cleanup(); resolve(meta);
+                    done = true; cleanup();
+                    saveCanvas(canvas, ci).then(function () { resolve(meta); }, reject);
                 } catch (e) { fail(e); }
             };
             v.src = url;
@@ -309,11 +337,12 @@
             wave.width = THUMB_W - 24; wave.height = THUMB_H - 40;
             drawWave(wave, peaks, { color: "#EDE3FB", mid: "rgba(200,168,245,0.35)" });
             g.drawImage(wave, 12, 20);
-            saveCanvas(c, ci);
-            return {
-                hasThumb: true, waveform: true, duration: buffer.duration,
-                channels: buffer.numberOfChannels, sampleRate: buffer.sampleRate, peaks: peaks
-            };
+            return saveCanvas(c, ci).then(function () {
+                return {
+                    hasThumb: true, waveform: true, duration: buffer.duration,
+                    channels: buffer.numberOfChannels, sampleRate: buffer.sampleRate, peaks: peaks
+                };
+            });
         });
     }
 
@@ -345,9 +374,10 @@
                     var mime = /\.png$/i.test(info.image.name) ? "image/png" : /\.gif$/i.test(info.image.name) ? "image/gif" : "image/jpeg";
                     return loadImage("data:" + mime + ";base64," + buf.toString("base64"));
                 }).then(function (img) {
-                    saveCanvas(drawContain(img, img.naturalWidth, img.naturalHeight, true), ci);
-                    meta.hasThumb = true;
-                    meta.width = img.naturalWidth; meta.height = img.naturalHeight;
+                    return saveCanvas(drawContain(img, img.naturalWidth, img.naturalHeight, true), ci).then(function () {
+                        meta.hasThumb = true;
+                        meta.width = img.naturalWidth; meta.height = img.naturalHeight;
+                    });
                 }).catch(function () { /* tenta pelo vídeo */ });
             }
             return chain;
@@ -362,6 +392,9 @@
 
     window.HLPreviews = {
         init: function (cfgGetter) { getCfg = cfgGetter; },
+        // aviso de problema ao gravar previews (pasta só leitura, disco cheio)
+        onProblem: function (fn) { problemHandler = fn || function () { }; },
+        MAX_AUDIO_BYTES: MAX_AUDIO_BYTES,
         get: get,
         peek: peek,
         forget: forget,
@@ -370,6 +403,7 @@
         decodeFile: decodeFile,
         drawWave: drawWave,
         audioContext: ctx,
-        _validMeta: validMeta   // exposto para os testes automáticos
+        _validMeta: validMeta,  // expostos para os testes automáticos
+        _readCached: readCached
     };
 })();

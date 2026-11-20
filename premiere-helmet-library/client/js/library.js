@@ -337,12 +337,35 @@
 
     function exists(pth) { try { return fs.existsSync(pth); } catch (e) { return false; } }
 
-    // Entrada de um arquivo avulso (favoritos). null se não existir mais.
+    // Versão que não trava o painel (HD externo ou rede desconectados podem demorar a responder).
+    function existsAsync(pth) {
+        return p(fs.stat, pth).then(function () { return true; }, function () { return false; });
+    }
+
+    // Entrada de um arquivo avulso (favoritos). Promise<entrada | null se não existir mais>.
     function fileEntry(pth) {
-        try {
-            var st = fs.statSync(pth);
-            return st.isFile() ? makeEntry(pth, st) : null;
-        } catch (e) { return null; }
+        return p(fs.stat, pth).then(function (st) { return st.isFile() ? makeEntry(pth, st) : null; }, function () { return null; });
+    }
+
+    // ---------- mensagens de erro ----------
+    // what: "folder" (abrir pasta) | "file" (ler arquivo) | "write" (gravar previews)
+
+    var NETWORK_CODES = ["ETIMEDOUT", "EHOSTDOWN", "EHOSTUNREACH", "ENETUNREACH", "ENETDOWN", "ECONNRESET", "EIO", "UNKNOWN"];
+
+    function describeError(err, what) {
+        var code = err && err.code;
+        if (what === "write") {
+            if (code === "EACCES" || code === "EPERM" || code === "EROFS") return "Sem permissão para gravar previews nesta pasta. Use \"Cache do sistema\" nas configurações.";
+            if (code === "ENOSPC") return "Disco cheio: não deu para gravar o preview.";
+        }
+        if (code === "ENOENT" || code === "ENOTDIR") {
+            return what === "file" ? "O arquivo não foi encontrado (foi movido, apagado ou está num disco desconectado)."
+                : "A pasta não foi encontrada. Se ela está num HD externo ou na rede, confira se está conectado.";
+        }
+        if (code === "EACCES" || code === "EPERM") return what === "file" ? "Sem permissão para abrir este arquivo." : "Sem permissão para abrir esta pasta.";
+        if (code === "EBUSY") return "Em uso por outro programa. Tente de novo daqui a pouco.";
+        if (NETWORK_CODES.indexOf(code) >= 0) return "O disco ou a pasta de rede não respondeu. Confira se está conectado.";
+        return String(err && err.message || err);
     }
 
     // ---------- cache de previews ----------
@@ -617,6 +640,9 @@
         if (watchers[dir]) { try { watchers[dir].close(); } catch (e) { } delete watchers[dir]; }
     }
 
+    // o vigia cai sozinho quando a unidade some; o painel religa quando ela volta
+    function watching(dir) { return !!watchers[dir]; }
+
     // ---------- utilidades ----------
 
     function toFileUrl(pth) {
@@ -687,7 +713,9 @@
         listDirs: listDirs,
         walk: walk,
         exists: exists,
+        existsAsync: existsAsync,
         fileEntry: fileEntry,
+        describeError: describeError,
         libraryOf: libraryOf,
         isInside: isInside,
         samePath: samePath,
@@ -702,6 +730,7 @@
         ZIP_LIMITS: ZIP_LIMITS,
         watch: watch,
         unwatch: unwatch,
+        watching: watching,
         toFileUrl: toFileUrl,
         reveal: reveal,
         openFolder: openFolder,

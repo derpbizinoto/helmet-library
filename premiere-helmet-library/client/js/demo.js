@@ -70,8 +70,9 @@
         }
         return Promise.resolve(out);
     };
-    L.fileEntry = function (p) { return f(pathShim.dirname(p), pathShim.basename(p)); };
+    L.fileEntry = function (p) { return Promise.resolve(f(pathShim.dirname(p), pathShim.basename(p))); };
     L.exists = function () { return true; };
+    L.existsAsync = function () { return Promise.resolve(true); };
     L.isInside = function (child, parent) { return child.toLowerCase() === parent.toLowerCase() || child.toLowerCase().indexOf(parent.toLowerCase() + "\\") === 0; };
     L.samePath = function (a, b) { return a.toLowerCase() === b.toLowerCase(); };
     L.libraryOf = function (c, p) {
@@ -85,5 +86,6 @@
     L.clearCache = function () { return Promise.resolve(0); };
     L.removePreview = function () { };
     L.watch = L.unwatch = L.reveal = L.openFolder = function () { };
+    L.watching = function () { return true; };
     L.demo = true;
 })();

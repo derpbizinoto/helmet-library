@@ -44,6 +44,8 @@
         anchor: -1,          // índice para seleção com Shift
         focus: -1,
         dirCache: {},        // pasta → [subpastas]
+        walkCache: {},       // pasta|showUnknown → { time, files } (busca e "incluir subpastas")
+        missing: {},         // biblioteca → true quando a pasta não foi encontrada
         token: 0,
         busy: false
     };
@@ -214,7 +216,7 @@
         row.className = "tree-row" + (lib ? " root" : "");
         row.dataset.path = dir;
         row.style.paddingLeft = (depth * 14) + "px";
-        var missing = lib && !L.exists(dir);
+        var missing = !!(lib && state.missing[lib.path]);
         if (missing) row.classList.add("missing");
         fill(row, [
             h("span", { className: "twisty" }, [icon("i-chevron")]),
@@ -247,7 +249,14 @@
 
         twisty.addEventListener("click", function (e) { e.stopPropagation(); expand(!isExpanded(dir)); });
         row.addEventListener("click", function () {
-            if (missing) { setStatus("A pasta desta biblioteca não foi encontrada (unidade desconectada ou pasta movida).", "error"); return; }
+            if (missing) {
+                // confere de novo: o HD pode ter sido religado
+                checkLibraries().then(function () {
+                    if (state.missing[lib.path]) setStatus(MISSING_TEXT, "error");
+                    else openView({ type: "folder", path: dir });
+                });
+                return;
+            }
             openView({ type: "folder", path: dir });
         });
         row.addEventListener("dblclick", function (e) { if (e.target.closest(".row-menu")) return; expand(!isExpanded(dir)); });
@@ -334,6 +343,63 @@
 
     function searchText() { return els.search.value.trim(); }
 
+    // ---------- índice das subpastas em memória ----------
+    // Buscar ou "incluir subpastas" lê a pasta inteira. Guardar o resultado por alguns
+    // segundos evita reler o disco a cada letra digitada na busca. O vigia de pastas,
+    // o "Atualizar" e a opção de arquivos desconhecidos apagam o índice.
+
+    var WALK_LIMIT = 20000;
+    var WALK_TTL = 30000;
+
+    function walkCached(dir) {
+        var key = dir + "|" + (cfg.showUnknown ? 1 : 0);
+        var hit = state.walkCache[key];
+        if (hit && Date.now() - hit.time < WALK_TTL) return Promise.resolve(hit.files);
+        return L.walk(dir, { showUnknown: cfg.showUnknown, root: rootOf(dir) }, WALK_LIMIT).then(function (files) {
+            state.walkCache[key] = { time: Date.now(), files: files };
+            return files;
+        });
+    }
+
+    // apaga o índice das pastas afetadas por uma mudança em dir (ela e as que a contêm)
+    function forgetWalk(dir) {
+        Object.keys(state.walkCache).forEach(function (key) {
+            var p = key.slice(0, key.lastIndexOf("|"));
+            if (!dir || L.isInside(dir, p) || L.isInside(p, dir)) delete state.walkCache[key];
+        });
+    }
+
+    // ---------- bibliotecas desconectadas ----------
+    // Confere (sem travar o painel) se a pasta de cada biblioteca ainda existe. Quando uma
+    // volta (HD religado, rede de volta), religa o vigia e relê as pastas.
+
+    var MISSING_TEXT = "A pasta desta biblioteca não foi encontrada. Se ela está num HD externo ou na rede, confira se está conectado; se foi movida ou renomeada, remova e adicione de novo.";
+    var checking = null;
+
+    function checkLibraries() {
+        if (checking) return checking;
+        var libs = cfg.libraries.slice();
+        checking = Promise.all(libs.map(function (lib) { return L.existsAsync(lib.path); })).then(function (ok) {
+            checking = null;
+            var changed = false;
+            libs.forEach(function (lib, i) {
+                var was = !!state.missing[lib.path];
+                if (was === !ok[i]) return;
+                changed = true;
+                if (ok[i]) delete state.missing[lib.path]; else state.missing[lib.path] = true;
+                Object.keys(state.dirCache).forEach(function (k) { if (L.isInside(k, lib.path)) delete state.dirCache[k]; });
+                forgetWalk(lib.path);
+            });
+            libs.forEach(function (lib, i) { if (ok[i] && !L.watching(lib.path)) watchLib(lib); });
+            if (changed) {
+                renderTree();
+                var v = state.view;
+                if (v && (v.type === "favorites" || libs.some(function (lib) { return L.isInside(v.path, lib.path); }))) loadItems(false);
+            }
+        }, function () { checking = null; });
+        return checking;
+    }
+
     function loadItems(scrollTop) {
         // durante um arraste, recriar os cards cancela o drag: deixa para depois
         if (state.dragging && !scrollTop) { state.reloadAfterDrag = true; return Promise.resolve(); }
@@ -346,12 +412,22 @@
         if (!v) {
             work = Promise.resolve({ dirs: [], files: [] });
         } else if (v.type === "favorites") {
-            var files = [];
-            cfg.favorites.forEach(function (p) { var e = L.fileEntry(p); if (e) files.push(e); });
-            files.sort(function (a, b) { return a.name.localeCompare(b.name, "pt-BR", { numeric: true }); });
-            work = Promise.resolve({ dirs: [], files: files });
+            work = Promise.all(cfg.favorites.map(L.fileEntry)).then(function (found) {
+                var files = found.filter(Boolean);
+                files.sort(function (a, b) { return a.name.localeCompare(b.name, "pt-BR", { numeric: true }); });
+                var lost = found.length - files.length;
+                return {
+                    dirs: [], files: files,
+                    notice: lost ? lost + (lost === 1 ? " favorito não encontrado" : " favoritos não encontrados") + " — o arquivo foi movido ou está num HD/pasta de rede desconectado." : ""
+                };
+            });
         } else if (q || cfg.includeSub) {
-            work = L.walk(v.path, { showUnknown: cfg.showUnknown, root: rootOf(v.path) }).then(function (files) { return { dirs: [], files: files }; });
+            work = walkCached(v.path).then(function (files) {
+                return {
+                    dirs: [], files: files,
+                    notice: files.truncated ? "Mostrando só os primeiros " + WALK_LIMIT.toLocaleString("pt-BR") + " arquivos desta pasta e subpastas. Abra uma subpasta para ver o resto." : ""
+                };
+            });
         } else {
             work = L.listDir(v.path, { showUnknown: cfg.showUnknown, root: rootOf(v.path) });
         }
@@ -385,11 +461,14 @@
             var count = files.length + " arquivo" + (files.length === 1 ? "" : "s");
             if (q) count = files.length + " resultado" + (files.length === 1 ? "" : "s");
             els.crumbCount.textContent = v ? count : "";
+            if (res.notice) setStatus(res.notice, "warning");
         }, function (err) {
             if (token !== state.token) return;
             state.items = [];
             renderGrid(true);
-            showEmpty("i-folder", ["Não deu para abrir esta pasta.", h("br"), h("small", null, [String(err && err.message || err)])]);
+            showEmpty("i-folder", ["Não deu para abrir esta pasta.", h("br"), h("small", null, [L.describeError(err, "folder")])]);
+            // a biblioteca inteira pode ter sumido (HD desligado): atualiza a árvore
+            checkLibraries();
         }).then(function () {
             if (token === state.token) els.gridWrap.classList.remove("loading");
         });
@@ -865,8 +944,10 @@
 
     function refreshFolder(dir) {
         Object.keys(state.dirCache).forEach(function (k) { if (L.isInside(k, dir)) delete state.dirCache[k]; });
+        forgetWalk(dir);
         renderTree();
         if (state.view) loadItems(false);
+        checkLibraries();
     }
 
     function watchLib(lib) {
@@ -874,6 +955,7 @@
             changedDirs.forEach(function (d) {
                 delete state.dirCache[d];
                 delete state.dirCache[L.path.dirname(d)];
+                forgetWalk(d);
             });
             renderTree();
             var v = state.view;
@@ -1068,7 +1150,7 @@
     els.setMirror.addEventListener("change", function () { cfg.mirrorFolders = els.setMirror.checked; save(); });
     els.setDblClick.addEventListener("change", function () { cfg.dblClick = els.setDblClick.value; save(); });
     els.setAutoplay.addEventListener("change", function () { cfg.autoplay = els.setAutoplay.checked; save(); });
-    els.setUnknown.addEventListener("change", function () { cfg.showUnknown = els.setUnknown.checked; save(); if (state.view) loadItems(false); });
+    els.setUnknown.addEventListener("change", function () { cfg.showUnknown = els.setUnknown.checked; save(); forgetWalk(null); if (state.view) loadItems(false); });
 
     // ======================================================================
     // barra superior, caminho, tamanho, divisor
@@ -1158,12 +1240,33 @@
     syncSubfoldersBtn();
     cfg.libraries.forEach(watchLib);
     renderTree();
+    checkLibraries();
 
+    // última pasta aberta: conferida sem travar (um HD desligado pode demorar a responder)
     var start = cfg.lastView;
-    if (start && start.type === "folder" && !(L.libraryOf(cfg, start.path) && L.exists(start.path))) start = null;
-    if (!start && cfg.libraries.length) start = { type: "folder", path: cfg.libraries[0].path };
-    if (start) openView(start);
-    else { renderCrumbs(); loadItems(true); }
+    if (start && start.type === "folder" && !L.libraryOf(cfg, start.path)) start = null;
+    (start && start.type === "folder" ? L.existsAsync(start.path) : Promise.resolve(true)).then(function (ok) {
+        if (!ok) start = null;
+        if (!start && cfg.libraries.length) start = { type: "folder", path: cfg.libraries[0].path };
+        if (start) openView(start);
+        else { renderCrumbs(); loadItems(true); }
+    });
+
+    // ao voltar para o painel, confere se algum HD/pasta de rede foi ligado ou desligado
+    var lastFocusCheck = 0;
+    window.addEventListener("focus", function () {
+        if (Date.now() - lastFocusCheck < 3000) return;
+        lastFocusCheck = Date.now();
+        checkLibraries();
+    });
+
+    // previews que não puderam ser gravados (pasta só leitura, disco cheio): avisa uma vez por minuto
+    var lastPreviewProblem = 0;
+    P.onProblem(function (msg) {
+        if (Date.now() - lastPreviewProblem < 60000) return;
+        lastPreviewProblem = Date.now();
+        setStatus(msg, "error");
+    });
 
     if (L.demo) setStatus("Modo de demonstração (fora do Premiere): biblioteca de exemplo, sem acesso ao disco.", "warning", true);
 
