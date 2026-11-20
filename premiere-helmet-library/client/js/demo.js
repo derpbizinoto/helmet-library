@@ -81,8 +81,9 @@
     };
     L.cacheInfo = function () { return { dir: "(modo de demonstração)", key: "", base: "" }; };
     L.systemCacheDir = function () { return "%LOCALAPPDATA%\\Helmet Library\\cache"; };
-    L.dirSize = function () { return { bytes: 0, files: 0 }; };
-    L.clearDir = function () { return 0; };
+    L.cacheSize = function () { return Promise.resolve({ bytes: 0, files: 0 }); };
+    L.clearCache = function () { return Promise.resolve(0); };
+    L.removePreview = function () { };
     L.watch = L.unwatch = L.reveal = L.openFolder = function () { };
     L.demo = true;
 })();

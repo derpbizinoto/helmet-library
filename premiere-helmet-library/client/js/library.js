@@ -230,29 +230,66 @@
         return name.charAt(0) === "." || IGNORE[name.toLowerCase()] === 1 || name.charAt(0) === "~";
     }
 
+    function byName(a, b) { return a.name.localeCompare(b.name, "pt-BR", { numeric: true, sensitivity: "base" }); }
+
+    function realpath(pth) {
+        return new Promise(function (resolve, reject) {
+            (fs.realpath.native || fs.realpath)(pth, function (err, res) { if (err) reject(err); else resolve(res); });
+        });
+    }
+
+    // Caminho real da raiz de cada biblioteca (a própria raiz pode ser um atalho).
+    var rootReal = {};
+    function realRoot(root) {
+        var k = root.toLowerCase();
+        if (!rootReal[k]) {
+            rootReal[k] = realpath(root).catch(function () { delete rootReal[k]; return path.resolve(root); });
+        }
+        return rootReal[k];
+    }
+
+    // Lê uma entrada da pasta. Atalhos (links simbólicos e junções do Windows) só são
+    // seguidos se o destino real ficar DENTRO da mesma biblioteca (root); os que apontam
+    // para fora são ignorados. Resolve { st, link, real } ou null (ignorar).
+    function inspect(full, root) {
+        return p(fs.lstat, full).then(function (lst) {
+            if (!lst.isSymbolicLink()) return { st: lst, link: false };
+            if (!root) return null;
+            return Promise.all([realpath(full), realRoot(root)]).then(function (r) {
+                if (!isInside(r[0], r[1])) return null;
+                return p(fs.stat, full).then(function (st) { return { st: st, link: true, real: r[0] }; });
+            });
+        }).catch(function () { return null; });   // sem permissão ou link quebrado: ignora
+    }
+
+    function makeEntry(full, st) {
+        var name = path.basename(full);
+        var t = typeOf(name);
+        return {
+            name: name, path: full, dir: path.dirname(full), ext: t.ext, kind: t.kind || "unknown",
+            canPreview: t.preview, size: st.size, mtime: st.mtime.getTime()
+        };
+    }
+
     // Lista uma pasta: subpastas e arquivos (com tipo, tamanho e data).
+    // opts: { root: pasta da biblioteca, showUnknown, dirsOnly }
     function listDir(dir, opts) {
         opts = opts || {};
         return p(fs.readdir, dir).then(function (names) {
-            var dirs = [], files = [], pending = [];
-            names.forEach(function (name) {
-                if (isHidden(name)) return;
+            var dirs = [], files = [];
+            return Promise.all(names.map(function (name) {
+                if (isHidden(name)) return null;
                 var full = path.join(dir, name);
-                pending.push(p(fs.stat, full).then(function (st) {
-                    if (st.isDirectory()) {
-                        dirs.push({ name: name, path: full });
-                    } else if (st.isFile()) {
-                        var t = typeOf(name);
-                        if (!t.kind && !opts.showUnknown) return;
-                        files.push({
-                            name: name, path: full, dir: dir, ext: t.ext, kind: t.kind || "unknown",
-                            canPreview: t.preview, size: st.size, mtime: st.mtime.getTime()
-                        });
+                return inspect(full, opts.root).then(function (info) {
+                    if (!info) return;
+                    if (info.st.isDirectory()) {
+                        dirs.push({ name: name, path: full, link: info.link, real: info.real });
+                    } else if (info.st.isFile() && !opts.dirsOnly) {
+                        var e = makeEntry(full, info.st);
+                        if (e.kind !== "unknown" || opts.showUnknown) files.push(e);
                     }
-                }, function () { /* sem permissão ou link quebrado: ignora */ }));
-            });
-            return Promise.all(pending).then(function () {
-                var byName = function (a, b) { return a.name.localeCompare(b.name, "pt-BR", { numeric: true, sensitivity: "base" }); };
+                });
+            })).then(function () {
                 dirs.sort(byName);
                 files.sort(byName);
                 return { dirs: dirs, files: files };
@@ -260,38 +297,41 @@
         });
     }
 
-    // Lista todos os arquivos de uma pasta e das subpastas (para busca e "incluir subpastas").
-    function walk(dir, opts, limit) {
-        limit = limit || 20000;
-        var out = [];
-        var stack = [dir];
-        function next() {
-            if (!stack.length || out.length >= limit) return Promise.resolve(out);
-            var d = stack.shift();
-            return listDir(d, opts).then(function (res) {
-                res.dirs.forEach(function (x) { stack.push(x.path); });
-                for (var i = 0; i < res.files.length && out.length < limit; i++) out.push(res.files[i]);
-                return next();
-            }, next);
-        }
-        return next();
+    // Só as subpastas (para a árvore lateral).
+    function listDirs(dir, opts) {
+        return listDir(dir, { root: opts && opts.root, dirsOnly: true }).then(function (res) { return res.dirs; });
     }
 
-    // Só as subpastas (para a árvore lateral).
-    function listDirs(dir) {
-        return p(fs.readdir, dir).then(function (names) {
-            var dirs = [], pending = [];
-            names.forEach(function (name) {
-                if (isHidden(name)) return;
-                var full = path.join(dir, name);
-                pending.push(p(fs.stat, full).then(function (st) {
-                    if (st.isDirectory()) dirs.push({ name: name, path: full });
-                }, function () { }));
-            });
-            return Promise.all(pending).then(function () {
-                dirs.sort(function (a, b) { return a.name.localeCompare(b.name, "pt-BR", { numeric: true, sensitivity: "base" }); });
-                return dirs;
-            });
+    function pathKey(pth) { return process.platform === "win32" ? pth.toLowerCase() : pth; }
+
+    // Lista todos os arquivos de uma pasta e das subpastas (para busca e "incluir subpastas").
+    // Cada pasta real é lida uma vez só, então um atalho que aponta para a pasta "mãe" não
+    // faz a leitura andar em círculo. Se passar do limite, o resultado vem com truncated = true.
+    function walk(dir, opts, limit) {
+        opts = opts || {};
+        limit = limit || 20000;
+        var out = [];
+        var seen = {};
+        return realpath(dir).catch(function () { return path.resolve(dir); }).then(function (startReal) {
+            var queue = [{ path: dir, real: startReal }];
+            function next() {
+                if (out.length >= limit) { out.truncated = true; return out; }
+                if (!queue.length) return out;
+                var d = queue.shift();
+                if (seen[pathKey(d.real)]) return next();
+                seen[pathKey(d.real)] = true;
+                return listDir(d.path, opts).then(function (res) {
+                    res.dirs.forEach(function (x) {
+                        queue.push({ path: x.path, real: x.link ? x.real : path.join(d.real, x.name) });
+                    });
+                    for (var i = 0; i < res.files.length; i++) {
+                        if (out.length >= limit) { out.truncated = true; break; }
+                        out.push(res.files[i]);
+                    }
+                    return next();
+                }, next);
+            }
+            return next();
         });
     }
 
@@ -301,13 +341,7 @@
     function fileEntry(pth) {
         try {
             var st = fs.statSync(pth);
-            if (!st.isFile()) return null;
-            var name = path.basename(pth);
-            var t = typeOf(name);
-            return {
-                name: name, path: pth, dir: path.dirname(pth), ext: t.ext, kind: t.kind || "unknown",
-                canPreview: t.preview, size: st.size, mtime: st.mtime.getTime()
-            };
+            return st.isFile() ? makeEntry(pth, st) : null;
         } catch (e) { return null; }
     }
 
@@ -345,8 +379,19 @@
         return { dir: dir, key: key, base: path.join(dir, key) };
     }
 
+    // Arquivos que a própria extensão grava no cache: <chave de 24 letras/números>.<ext>.
+    // Só esses podem ser apagados pelo "Limpar previews".
+    var PREVIEW_FILE = /^[0-9a-f]{24}\.(json|jpg|mp4|mov|m4v|webm)$/i;
+
+    function isLinkSync(pth) { try { return fs.lstatSync(pth).isSymbolicLink(); } catch (e) { return false; } }
+
+    // Cria a pasta de cache. Uma pasta de cache que seja atalho para outro lugar é recusada:
+    // nada é gravado (nem apagado) através dela.
     function ensureCacheDir(dir) {
-        if (exists(dir)) return;
+        if (exists(dir)) {
+            if (isLinkSync(dir)) throw new Error("a pasta de previews é um atalho para outro lugar; por segurança nada é gravado nela");
+            return;
+        }
         mkdirp(dir);
         // pasta oculta no Windows, para não poluir a biblioteca
         if (process.platform === "win32" && path.basename(dir) === CACHE_DIR_NAME) {
@@ -354,24 +399,44 @@
         }
     }
 
-    function dirSize(dir) {
-        var total = 0, count = 0;
-        try {
-            fs.readdirSync(dir).forEach(function (n) {
-                try { var st = fs.statSync(path.join(dir, n)); if (st.isFile()) { total += st.size; count++; } } catch (e) { }
-            });
-        } catch (e) { }
-        return { bytes: total, files: count };
+    // Arquivos de preview de uma pasta de cache: [{ path, size }]. Pasta-atalho: nenhum.
+    function previewFiles(dir) {
+        return p(fs.lstat, dir).then(function (st) {
+            if (st.isSymbolicLink() || !st.isDirectory()) return [];
+            return p(fs.readdir, dir).then(function (names) {
+                return Promise.all(names.filter(function (n) { return PREVIEW_FILE.test(n); }).map(function (n) {
+                    var f = path.join(dir, n);
+                    return p(fs.lstat, f).then(function (s) { return s.isFile() ? { path: f, size: s.size } : null; }, function () { return null; });
+                }));
+            }).then(function (list) { return list.filter(Boolean); });
+        }, function () { return []; });
     }
 
-    function clearDir(dir) {
-        var n = 0;
-        try {
-            fs.readdirSync(dir).forEach(function (f) {
-                try { fs.unlinkSync(path.join(dir, f)); n++; } catch (e) { }
-            });
-        } catch (e) { }
-        return n;
+    // Tamanho dos previews guardados nas pastas de cache: Promise<{ bytes, files }>
+    function cacheSize(dirs) {
+        return Promise.all(dirs.map(previewFiles)).then(function (lists) {
+            var total = { bytes: 0, files: 0 };
+            lists.forEach(function (list) { list.forEach(function (f) { total.bytes += f.size; total.files++; }); });
+            return total;
+        });
+    }
+
+    // Apaga só os arquivos de preview dessas pastas: Promise<quantos foram apagados>
+    function clearCache(dirs) {
+        return Promise.all(dirs.map(previewFiles)).then(function (lists) {
+            var all = [].concat.apply([], lists);
+            return Promise.all(all.map(function (f) {
+                return p(fs.unlink, f.path).then(function () { return 1; }, function () { return 0; });
+            }));
+        }).then(function (done) { return done.reduce(function (a, b) { return a + b; }, 0); });
+    }
+
+    // Apaga os previews de um arquivo (para "Gerar preview de novo").
+    function removePreview(ci) {
+        if (isLinkSync(ci.dir)) return;
+        ["json", "jpg", "mp4", "mov", "m4v", "webm"].forEach(function (ext) {
+            try { fs.unlinkSync(ci.base + "." + ext); } catch (e) { /* não existia */ }
+        });
     }
 
     // ---------- MOGRT (arquivo .zip) ----------
@@ -550,8 +615,9 @@
         cacheInfo: cacheInfo,
         ensureCacheDir: ensureCacheDir,
         systemCacheDir: systemCacheDir,
-        dirSize: dirSize,
-        clearDir: clearDir,
+        cacheSize: cacheSize,
+        clearCache: clearCache,
+        removePreview: removePreview,
         inspectMogrt: inspectMogrt,
         readZipEntry: readZipEntry,
         watch: watch,

@@ -127,9 +127,15 @@
         save();
     }
 
+    // pasta da biblioteca que contém dir (atalhos só são seguidos dentro dela)
+    function rootOf(dir) {
+        var lib = L.libraryOf(cfg, dir);
+        return lib ? lib.path : null;
+    }
+
     function loadDirs(dir) {
         if (state.dirCache[dir]) return Promise.resolve(state.dirCache[dir]);
-        return L.listDirs(dir).then(function (dirs) { state.dirCache[dir] = dirs; return dirs; }, function () { state.dirCache[dir] = []; return []; });
+        return L.listDirs(dir, { root: rootOf(dir) }).then(function (dirs) { state.dirCache[dir] = dirs; return dirs; }, function () { state.dirCache[dir] = []; return []; });
     }
 
     function renderTree() {
@@ -310,9 +316,9 @@
             files.sort(function (a, b) { return a.name.localeCompare(b.name, "pt-BR", { numeric: true }); });
             work = Promise.resolve({ dirs: [], files: files });
         } else if (q || cfg.includeSub) {
-            work = L.walk(v.path, { showUnknown: cfg.showUnknown }).then(function (files) { return { dirs: [], files: files }; });
+            work = L.walk(v.path, { showUnknown: cfg.showUnknown, root: rootOf(v.path) }).then(function (files) { return { dirs: [], files: files }; });
         } else {
-            work = L.listDir(v.path, { showUnknown: cfg.showUnknown });
+            work = L.listDir(v.path, { showUnknown: cfg.showUnknown, root: rootOf(v.path) });
         }
 
         return work.then(function (res) {
@@ -661,7 +667,8 @@
         stopHover();
         hideMenu();
         var it = state.items[+el.dataset.i];
-        var files = state.selected[it.path] ? selectedFiles() : [it];
+        var files = (state.selected[it.path] ? selectedFiles() : [it]).filter(allowedFile);
+        if (!files.length) { e.preventDefault(); return; }
         var dt = e.dataTransfer;
         // "all": se o Premiere pedir mover/vincular e a origem só permitir copiar, o Windows recusa o drop.
         // (o navegador nunca apaga nem move o arquivo original ao arrastar para fora)
@@ -720,8 +727,14 @@
         return { bin: BIN_NAME, sub: lib.name + (rel ? "/" + rel : "") };
     }
 
+    // Segunda trava: só vai para o Premiere arquivo que está numa biblioteca ou nos favoritos.
+    function allowedFile(f) {
+        return !!(f && !f.isDir && (L.libraryOf(cfg, f.path) || isFav(f.path)));
+    }
+
     var adding = false;
     function addFiles(files, toTimeline) {
+        files = files.filter(allowedFile);
         if (!files.length || adding) return;
         if (!inCEP) { setStatus("Modo de demonstração: no Premiere, " + files.length + " arquivo(s) iriam para " + (toTimeline ? "a timeline." : "o projeto."), "warning"); return; }
         adding = true;
@@ -849,12 +862,34 @@
         });
     }
 
+    // pastas de cache do modo atual
+    function cacheDirs() {
+        if (cfg.cacheMode !== "library") return [L.systemCacheDir()];
+        return cfg.libraries.map(function (lib) { return L.path.join(lib.path, L.CACHE_DIR_NAME); });
+    }
+
+    // Apaga os previews dessas pastas, depois de confirmar. Só arquivos de preview
+    // (nome no formato da extensão) são apagados; a mídia nunca é tocada.
+    // where: "" ou " de “Biblioteca”"
+    function clearPreviews(dirs, where) {
+        L.cacheSize(dirs).then(function (size) {
+            if (!size.files) { setStatus("Nenhum preview salvo" + where + ".", "warning"); return; }
+            var text = "Apagar " + size.files.toLocaleString("pt-BR") + " arquivo(s) de preview (" + L.fmtBytes(size.bytes) + ")" + where +
+                "?\nEles são refeitos sozinhos quando você abrir as pastas. Seus vídeos, sons e imagens não são tocados.";
+            return ask("Limpar previews", text, null, "Apagar").then(function (ok) {
+                if (!ok) return;
+                return L.clearCache(dirs).then(function (n) {
+                    P.clearMemo();
+                    if (!els.settings.hidden) updateCacheInfo();
+                    setStatus(n + " arquivo(s) de preview apagados" + where + ". Eles são recriados quando você abrir as pastas.", "success");
+                    if (state.view) loadItems(false);
+                });
+            });
+        });
+    }
+
     function clearLibraryCache(lib) {
-        var dir = L.path.join(lib.path, L.CACHE_DIR_NAME);
-        var n = L.clearDir(dir);
-        P.clearMemo();
-        setStatus(n + " arquivo(s) de preview apagados de “" + lib.name + "”.", "success");
-        if (state.view) loadItems(false);
+        clearPreviews([L.path.join(lib.path, L.CACHE_DIR_NAME)], " de “" + lib.name + "”");
     }
 
     els.btnAddLibrary.addEventListener("click", addLibrary);
@@ -977,19 +1012,18 @@
         els.setMirror.closest(".switch-row").style.opacity = els.setUseBin.checked ? "" : "0.45";
     }
 
+    var cacheInfoToken = 0;
     function updateCacheInfo() {
-        var size = { bytes: 0, files: 0 };
         if (cfg.cacheMode === "library") {
             els.cacheHint.innerHTML = "Os previews ficam numa pasta oculta <span class=\"path\">" + L.CACHE_DIR_NAME + "</span> dentro de cada biblioteca. Copiou a pasta para outro PC ou HD? Os previews vão junto.";
-            cfg.libraries.forEach(function (lib) {
-                var s = L.dirSize(L.path.join(lib.path, L.CACHE_DIR_NAME));
-                size.bytes += s.bytes; size.files += s.files;
-            });
         } else {
             els.cacheHint.innerHTML = "Os previews ficam em <span class=\"path\">" + esc(L.systemCacheDir()) + "</span>. As pastas da biblioteca não são alteradas.";
-            size = L.dirSize(L.systemCacheDir());
         }
-        els.cacheSize.textContent = size.files ? "Ocupando " + L.fmtBytes(size.bytes) + " (" + size.files + " arquivos)" : "Nenhum preview salvo ainda.";
+        var token = ++cacheInfoToken;
+        L.cacheSize(cacheDirs()).then(function (size) {
+            if (token !== cacheInfoToken) return;
+            els.cacheSize.textContent = size.files ? "Ocupando " + L.fmtBytes(size.bytes) + " (" + size.files + " arquivos)" : "Nenhum preview salvo ainda.";
+        });
     }
 
     els.btnSettings.addEventListener("click", openSettings);
@@ -1006,15 +1040,7 @@
             if (state.view) loadItems(false);
         });
     });
-    els.btnClearCache.addEventListener("click", function () {
-        var n = 0;
-        if (cfg.cacheMode === "library") cfg.libraries.forEach(function (lib) { n += L.clearDir(L.path.join(lib.path, L.CACHE_DIR_NAME)); });
-        else n = L.clearDir(L.systemCacheDir());
-        P.clearMemo();
-        updateCacheInfo();
-        setStatus(n + " arquivo(s) de preview apagados. Eles são recriados quando você abrir as pastas.", "success");
-        if (state.view) loadItems(false);
-    });
+    els.btnClearCache.addEventListener("click", function () { clearPreviews(cacheDirs(), ""); });
     els.setUseBin.addEventListener("change", function () { cfg.useBin = els.setUseBin.checked; save(); updateMirrorState(); });
     els.setMirror.addEventListener("change", function () { cfg.mirrorFolders = els.setMirror.checked; save(); });
     els.setDblClick.addEventListener("change", function () { cfg.dblClick = els.setDblClick.value; save(); });

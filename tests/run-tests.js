@@ -163,6 +163,110 @@ test("config: aceita arquivo salvo com BOM (editado no Bloco de Notas)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Pastas, atalhos e cache
+// ---------------------------------------------------------------------------
+
+function touch(file, content) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, content || "x");
+}
+
+// junção do Windows (não precisa de administrador); em outros sistemas, link simbólico
+function link(target, at) { fs.symlinkSync(target, at, process.platform === "win32" ? "junction" : "dir"); }
+
+test("pastas: tipos, ocultos e ordem natural", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    ["Som 10.wav", "Som 2.wav", "Áudio é.mp3", "emoji 🎬.mp4", "notas.txt", ".oculto.wav", "~temp.wav", "Thumbs.db"].forEach((n) => touch(path.join(lib, n)));
+    fs.mkdirSync(path.join(lib, "Sub pasta"));
+    const res = await L.listDir(lib, { root: lib });
+    eq(res.dirs.map((d) => d.name), ["Sub pasta"]);
+    eq(res.files.map((f) => f.name), ["Áudio é.mp3", "emoji 🎬.mp4", "Som 2.wav", "Som 10.wav"]);
+    const all = await L.listDir(lib, { root: lib, showUnknown: true });
+    assert.ok(all.files.some((f) => f.name === "notas.txt" && f.kind === "unknown"));
+});
+
+test("pastas: atalho para dentro da biblioteca é seguido; para fora, ignorado", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    const outside = tmpDir("fora");
+    touch(path.join(lib, "SFX", "boom.wav"));
+    touch(path.join(outside, "segredo.wav"));
+    link(path.join(lib, "SFX"), path.join(lib, "Atalho SFX"));
+    link(outside, path.join(lib, "Atalho fora"));
+    const dirs = await L.listDirs(lib, { root: lib });
+    eq(dirs.map((d) => d.name), ["Atalho SFX", "SFX"]);
+    const files = await L.walk(lib, { root: lib });
+    assert.ok(!files.some((f) => f.name === "segredo.wav"), "nada de fora da biblioteca");
+    eq(files.map((f) => f.name), ["boom.wav"], "a pasta real é lida uma vez só");
+});
+
+test("pastas: atalho que aponta para a pasta mãe não faz a busca andar em círculo", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    touch(path.join(lib, "A", "a.wav"));
+    link(lib, path.join(lib, "A", "volta"));
+    const files = await L.walk(lib, { root: lib });
+    eq(files.map((f) => f.name), ["a.wav"]);
+});
+
+test("pastas: busca avisa quando passa do limite", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    for (let i = 0; i < 5; i++) touch(path.join(lib, "s" + i + ".wav"));
+    const files = await L.walk(lib, { root: lib }, 3);
+    assert.strictEqual(files.length, 3);
+    assert.strictEqual(files.truncated, true);
+    assert.ok(!(await L.walk(lib, { root: lib })).truncated);
+});
+
+test("cache: Limpar previews só apaga arquivos com nome de preview", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const cache = path.join(tmpDir("lib"), ".helmet-previews");
+    const key = "0123456789abcdef01234567";
+    [key + ".json", key + ".jpg", key + ".mp4"].forEach((n) => touch(path.join(cache, n), "123"));
+    ["minha foto.jpg", "notas.json", key + ".exe", "0123.jpg"].forEach((n) => touch(path.join(cache, n)));
+    eq(await L.cacheSize([cache]), { bytes: 9, files: 3 });
+    assert.strictEqual(await L.clearCache([cache]), 3);
+    eq(fs.readdirSync(cache).sort(), ["0123.jpg", key + ".exe", "minha foto.jpg", "notas.json"].sort());
+});
+
+test("cache: pasta de previews que é atalho não é lida, gravada nem limpa", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const lib = tmpDir("lib");
+    const elsewhere = tmpDir("importante");
+    const key = "0123456789abcdef01234567";
+    touch(path.join(elsewhere, key + ".jpg"));
+    const cache = path.join(lib, ".helmet-previews");
+    link(elsewhere, cache);
+    eq(await L.cacheSize([cache]), { bytes: 0, files: 0 });
+    assert.strictEqual(await L.clearCache([cache]), 0);
+    assert.throws(() => L.ensureCacheDir(cache), /atalho/);
+    L.removePreview({ dir: cache, base: path.join(cache, key) });
+    assert.ok(fs.existsSync(path.join(elsewhere, key + ".jpg")));
+});
+
+test("cache: chave igual para a mesma biblioteca copiada em outro lugar (modo biblioteca)", () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const file = (root) => ({ path: path.join(root, "SFX", "boom.wav"), size: 10, mtime: 1700000000000 });
+    const a = L.cacheInfo({ cacheMode: "library", libraries: [{ path: "D:\\Bib" }] }, file("D:\\Bib"));
+    const b = L.cacheInfo({ cacheMode: "library", libraries: [{ path: "E:\\Copia" }] }, file("E:\\Copia"));
+    assert.strictEqual(a.key, b.key);
+    assert.ok(/^[0-9a-f]{24}$/.test(a.key));
+});
+
+test("previews: .json de cache vindo de outro PC só é aceito no formato esperado", () => {
+    const ctx = loadPanel(["client/js/library.js", "client/js/previews.js"], { APPDATA: tmpDir("cfg") });
+    const valid = ctx.HLPreviews._validMeta;
+    assert.ok(valid({ v: 1, hasThumb: true, duration: 3.2, videoExt: "mp4", title: "Título", peaks: [[0, 1]] }));
+    assert.ok(!valid({ v: 1, videoExt: "../../Windows/win.ini" }));
+    assert.ok(!valid({ v: 1, duration: "3" }));
+    assert.ok(!valid({ v: 1, title: { html: "<b>" } }));
+    assert.ok(!valid({ v: 2 }));
+    assert.ok(!valid(null));
+});
+
+// ---------------------------------------------------------------------------
 // Execução
 // ---------------------------------------------------------------------------
 

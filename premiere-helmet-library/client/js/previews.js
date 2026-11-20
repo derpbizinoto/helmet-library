@@ -59,12 +59,7 @@
     function forget(file) {
         var id = idOf(file);
         delete memo[id];
-        try {
-            var ci = L.cacheInfo(getCfg(), file);
-            ["json", "jpg", "mp4", "mov", "m4v", "webm"].forEach(function (ext) {
-                try { L.fs.unlinkSync(ci.base + "." + ext); } catch (e) { }
-            });
-        } catch (e) { }
+        try { L.removePreview(L.cacheInfo(getCfg(), file)); } catch (e) { /* sem cache */ }
     }
 
     function clearMemo() { memo = {}; }
@@ -73,7 +68,9 @@
         while (running < CONCURRENCY && queue.length) {
             var job = queue.shift();
             running++;
-            run(job).then(function (j, res) { finish(j, res); }.bind(null, job), function (j, err) {
+            // Promise.resolve().then: um erro dentro de run (ex.: pasta só leitura) vira falha
+            // deste arquivo, em vez de deixar a fila presa para sempre
+            Promise.resolve(job).then(run).then(function (j, res) { finish(j, res); }.bind(null, job), function (j, err) {
                 console.warn("Helmet Library: preview falhou", j.file.path, err);
                 finish(j, { thumb: null, video: null, meta: { error: String(err && err.message || err) } });
             }.bind(null, job));
@@ -118,10 +115,26 @@
         });
     }
 
+    var VIDEO_EXTS = ["mp4", "mov", "m4v", "webm"];
+
+    // O .json do cache pode ter vindo de outro PC (biblioteca copiada): só aceita o formato esperado.
+    function validMeta(meta) {
+        if (!meta || typeof meta !== "object" || meta.v !== VERSION) return false;
+        if (meta.videoExt != null && VIDEO_EXTS.indexOf(meta.videoExt) < 0) return false;
+        var nums = ["duration", "width", "height", "channels", "sampleRate"];
+        for (var i = 0; i < nums.length; i++) {
+            if (meta[nums[i]] != null && !(typeof meta[nums[i]] === "number" && isFinite(meta[nums[i]]))) return false;
+        }
+        if (meta.title != null && typeof meta.title !== "string") return false;
+        if (meta.error != null && typeof meta.error !== "string") return false;
+        if (meta.peaks != null && !(Array.isArray(meta.peaks) && meta.peaks.every(Array.isArray))) return false;
+        return true;
+    }
+
     function readCached(ci) {
         try {
             var meta = JSON.parse(L.fs.readFileSync(ci.base + ".json", "utf8"));
-            if (meta.v !== VERSION) return null;
+            if (!validMeta(meta)) return null;
             if (meta.hasThumb && !L.exists(ci.base + ".jpg")) return null;
             if (meta.videoExt && !L.exists(ci.base + "." + meta.videoExt)) return null;
             return result(ci, meta);
@@ -348,6 +361,7 @@
         deprioritize: deprioritize,
         decodeFile: decodeFile,
         drawWave: drawWave,
-        audioContext: ctx
+        audioContext: ctx,
+        _validMeta: validMeta   // exposto para os testes automáticos
     };
 })();
