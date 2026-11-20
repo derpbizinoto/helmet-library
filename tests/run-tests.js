@@ -619,75 +619,14 @@ test("host: o mesmo arquivo duas vezes na mesma bin é reaproveitado", async () 
     assert.strictEqual(host.app.project.imports.length, 1);
 });
 
-// Vídeo pré-importado ao arrastar (1.3.1) e solto no painel Project: o Premiere cria uma cópia própria.
-async function preImportedVideo(host, bridge, name, sub) {
-    const file = path.join(tmpDir("midia"), name);
-    touch(file);
-    const data = await bridge.call("hl_add", [file, "video", false, "Helmet Library", sub || ""]);
-    assert.strictEqual(data.reused, false);
-    assert.ok(data.nodeId, "hl_add devolve o nodeId");
-    return { file, data };
-}
 function copiesOf(bin, file, out) {
     out = out || [];
     bin.children.forEach((c) => { if (c.type === 2) copiesOf(c, file, out); else if (c.file === path.resolve(file)) out.push(c); });
     return out;
 }
 
-test("host: vídeo solto no Project não fica duplicado (sai a cópia pré-importada e a bin vazia)", async () => {
-    const host = loadHost();
-    const bridge = loadBridge(host);
-    const root = host.app.project.rootItem;
-    const v = await preImportedVideo(host, bridge, "clipe.mp4", "Teste/Sub");
-    root.add(new mock.ClipItem(path.resolve(v.file), 10));          // o que o Premiere cria ao soltar no Project
-    const r = await bridge.call("hl_dropDuplicate", [v.file, v.data.nodeId]);
-    assert.strictEqual(r.removed, true);
-    const left = copiesOf(root, v.file);
-    assert.strictEqual(left.length, 1, "fica uma cópia só");
-    assert.notStrictEqual(left[0].nodeId, v.data.nodeId, "fica a que o usuário soltou");
-    eq(root.children.map((c) => c.name), ["clipe.mp4"], "bins vazias e bin temporária somem");
-});
-
-test("host: cópia pré-importada fica se não há duplicata, se está numa sequência ou se a bin tem mais coisas", async () => {
-    const host = loadHost();
-    const bridge = loadBridge(host);
-    const root = host.app.project.rootItem;
-
-    // solto na timeline usando a própria cópia: não há outra, nada sai
-    const a = await preImportedVideo(host, bridge, "a.mp4");
-    assert.strictEqual((await bridge.call("hl_dropDuplicate", [a.file, a.data.nodeId])).removed, false);
-    assert.strictEqual(copiesOf(root, a.file).length, 1);
-
-    // há outra cópia, mas a pré-importada está na timeline: fica
-    const b = await preImportedVideo(host, bridge, "b.mp4");
-    const ours = copiesOf(root, b.file)[0];
-    host.app.project.activeSequence.videoTracks[0].overwriteClip(ours, 0);
-    root.add(new mock.ClipItem(path.resolve(b.file), 10));
-    assert.strictEqual((await bridge.call("hl_dropDuplicate", [b.file, b.data.nodeId])).removed, false);
-    assert.strictEqual(copiesOf(root, b.file).length, 2);
-
-    // duplicata solta no Project: sai só ela; a bin Helmet Library continua (tem a.mp4 e b.mp4)
-    const c = await preImportedVideo(host, bridge, "c.mp4");
-    root.add(new mock.ClipItem(path.resolve(c.file), 10));
-    assert.strictEqual((await bridge.call("hl_dropDuplicate", [c.file, c.data.nodeId])).removed, true);
-    const lib = root.children.find((x) => x.name === "Helmet Library");
-    eq(lib.children.map((x) => x.name), ["a.mp4", "b.mp4"]);
-    assert.ok(!root.children.some((x) => /removendo/.test(x.name)), "sem bin temporária sobrando");
-});
-
-test("host: sem conseguir conferir as sequências, não remove nada", async () => {
-    const host = loadHost();
-    const bridge = loadBridge(host);
-    const root = host.app.project.rootItem;
-    const v = await preImportedVideo(host, bridge, "d.mp4");
-    root.add(new mock.ClipItem(path.resolve(v.file), 10));
-    Object.defineProperty(host.app.project, "sequences", { get() { throw new Error("sem acesso"); } });
-    assert.strictEqual((await bridge.call("hl_dropDuplicate", [v.file, v.data.nodeId])).removed, false);
-    assert.strictEqual(copiesOf(root, v.file).length, 2);
-});
-
-// Arrastar MOGRT (1.3.4): imagem provisória trocada pelo MOGRT depois de soltar.
-test("arrastar MOGRT: imagem provisória com o nome do MOGRT, fora do cache de previews", () => {
+// Arrastar vídeo e MOGRT (1.3.4 / 1.3.5): imagem provisória trocada pelo item depois de soltar.
+test("arrastar: imagem provisória com o nome do arquivo, fora do cache de previews", () => {
     const appData = tmpDir("cfg");
     const L = loadLibrary(appData);
     const mogrt = path.join(tmpDir("midia"), "Título Ação 🎬.mogrt");
@@ -697,7 +636,9 @@ test("arrastar MOGRT: imagem provisória com o nome do MOGRT, fora do cache de p
     assert.ok(!L.isInside(a, L.systemCacheDir()), "fora do cache que o Limpar previews apaga");
     assert.strictEqual(fs.readFileSync(a).slice(1, 4).toString(), "PNG");
     assert.strictEqual(L.dragPlaceholder(mogrt), a, "mesmo caminho a cada arrasto");
-    assert.notStrictEqual(L.dragPlaceholder(path.join(tmpDir("midia2"), "Título Ação 🎬.mogrt")), a, "MOGRTs de mesmo nome não se misturam");
+    assert.notStrictEqual(L.dragPlaceholder(path.join(tmpDir("midia2"), "Título Ação 🎬.mogrt")), a, "arquivos de mesmo nome não se misturam");
+    const v = L.dragPlaceholder(path.join(tmpDir("midia"), "clipe.final.mp4"));
+    assert.strictEqual(path.basename(v), "clipe.final.png");
 });
 
 function dropPlaceholder(host, file, track, seconds) {
@@ -705,66 +646,85 @@ function dropPlaceholder(host, file, track, seconds) {
     if (track !== undefined) host.app.project.activeSequence.videoTracks[track].overwriteClip(item, seconds);
     return item;
 }
+function dragFiles(names) {
+    const dir = tmpDir("midia");
+    return names.map((n) => { const f = path.join(dir, n), ph = path.join(dir, n.replace(/\.[^.]+$/, "") + ".png"); touch(f); touch(ph); return { f, ph }; });
+}
 
-test("arrastar MOGRT: a imagem solta na timeline vira o MOGRT no mesmo tempo e trilha", async () => {
+test("arrastar: tira a imagem da timeline e do projeto e diz onde ela estava", async () => {
     const host = loadHost();
     const bridge = loadBridge(host);
-    const dir = tmpDir("midia");
-    const mogrt = path.join(dir, "Título.mogrt"), ph = path.join(dir, "Título.png");
-    touch(mogrt); touch(ph);
+    const [x] = dragFiles(["Título.mogrt"]);
+    const item = dropPlaceholder(host, x.ph);
+
+    // Premiere ainda não colocou na timeline: não mexe em nada
+    eq(await bridge.call("hl_takePlaceholder", [x.ph, false]), { found: 0 });
+    assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 1);
+
+    host.app.project.activeSequence.videoTracks[1].overwriteClip(item, 4);
+    const r = await bridge.call("hl_takePlaceholder", [x.ph, false]);
+    eq([r.found, r.track, r.seconds, r.end, r.ticks], [1, 1, 4, 9, mock.time(4).ticks]);
+    assert.strictEqual(host.app.project.activeSequence.videoTracks[1].clips.length, 0, "imagem sai da timeline");
+    assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0, "imagem sai do projeto");
+    assert.ok(!host.app.project.rootItem.children.some((c) => /removendo/.test(c.name)), "sem bin temporária sobrando");
+});
+
+test("arrastar: solto no Project só é tratado na última conferência; cancelado não faz nada", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const [x] = dragFiles(["Card.mogrt"]);
+    eq(await bridge.call("hl_takePlaceholder", [x.ph, true]), { found: 0 });   // cancelado
+    dropPlaceholder(host, x.ph);
+    eq(await bridge.call("hl_takePlaceholder", [x.ph, false]), { found: 0 });
+    eq(await bridge.call("hl_takePlaceholder", [x.ph, true]), { found: 0, inProject: true });
+    assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0, "imagem sai do projeto");
+    assert.strictEqual(host.app.project.imports.length, 0, "nada é importado pelo host aqui");
+});
+
+test("arrastar: imagem que o Premiere não deixa tirar da timeline dá erro", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const [x] = dragFiles(["X.mogrt"]);
+    dropPlaceholder(host, x.ph, 0, 2);
+    host.app.project.activeSequence.videoTracks[0].clips[0].remove = () => { throw new Error("travado"); };
+    await assert.rejects(bridge.call("hl_takePlaceholder", [x.ph, false]), /não deixou trocar/);
+});
+
+test("arrastar: MOGRT entra no lugar da imagem (tempo exato e trilha)", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const [x] = dragFiles(["Título.mogrt"]);
+    const seq = host.app.project.activeSequence;
+    const d = await bridge.call("hl_placeAt", [x.f, "mogrt", "Helmet Library", "", 1, 4, mock.time(4).ticks]);
+    eq(d, { name: "Título", track: "V2", end: 9 });
+    eq(seq.mgts.map((m) => [m.v, String(m.ticks)]), [[1, mock.time(4).ticks]]);
+});
+
+test("arrastar: vídeo entra no lugar da imagem com V e A; não cobre o que já está na timeline", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const [a, b] = dragFiles(["a.mp4", "b.mp4"]);
     const seq = host.app.project.activeSequence;
 
-    // Premiere ainda não colocou na timeline: espera a próxima conferência, sem mexer em nada
-    const item = dropPlaceholder(host, ph);
-    eq(await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", false]), { swapped: 0 });
-    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 1);
+    const d = await bridge.call("hl_placeAt", [a.f, "video", "Helmet Library", "Sub", 0, 2, ""]);
+    eq(d, { name: "a.mp4", track: "V1", end: 12 });
+    assert.strictEqual(seq.videoTracks[0].clips[0].start.seconds, 2);
+    assert.strictEqual(copiesOf(host.app.project.rootItem.children[0], a.f).length, 1, "importado na bin Helmet Library");
 
-    seq.videoTracks[1].overwriteClip(item, 4);
-    const r = await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", false]);
-    eq(r, { swapped: 1, name: "Título", track: "V2" });
-    eq(seq.mgts.map((m) => [m.v, Number(m.ticks) / mock.time(1).ticks]), [[1, 4]]);
-    assert.strictEqual(seq.videoTracks[1].clips.filter((c) => c.item.file === path.resolve(ph)).length, 0, "imagem sai da timeline");
-    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 0, "imagem sai do projeto");
-    assert.ok(!host.app.project.rootItem.children.some((x) => /removendo/.test(x.name)));
+    // A2 ocupado no meio do caminho: vai para a primeira trilha com V e A livres no mesmo tempo (V1)
+    seq.audioTracks[1].overwriteClip(new mock.ClipItem("x.wav", 3), 20);
+    const e = await bridge.call("hl_placeAt", [b.f, "video", "Helmet Library", "", 1, 15, ""]);
+    assert.strictEqual(e.track, "V1");
+    assert.strictEqual(seq.audioTracks[1].clips.length, 1, "o áudio que já estava continua lá");
 });
 
-test("arrastar MOGRT: solto no Project vira 'só no projeto'; cancelado não faz nada", async () => {
-    const dir = tmpDir("midia");
-    const mogrt = path.join(dir, "Card.mogrt"), ph = path.join(dir, "Card.png");
-    touch(mogrt); touch(ph);
-
-    // cancelado: nenhuma imagem em lugar nenhum
-    let host = loadHost({ mogrtInProject: true });
-    let bridge = loadBridge(host);
-    eq(await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", true]), { swapped: 0 });
-    assert.strictEqual(host.app.project.imports.length, 0);
-
-    // solto no Project: só fica no projeto até a última conferência
-    dropPlaceholder(host, ph);
-    eq(await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "Sub", false]), { swapped: 0 });
-    const r = await bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "Sub", true]);
-    assert.strictEqual(r.where, "project");
-    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 0, "imagem sai do projeto");
-    assert.strictEqual(host.app.project.imports[host.app.project.imports.length - 1], path.resolve(mogrt));
-
-    // versão que não importa MOGRT no projeto: mensagem clara (a imagem já saiu)
-    host = loadHost();
-    bridge = loadBridge(host);
-    dropPlaceholder(host, ph);
-    await assert.rejects(bridge.call("hl_swapPlaceholder", [ph, mogrt, "Helmet Library", "", true]), /só aceita MOGRT direto na timeline/);
-    assert.strictEqual(copiesOf(host.app.project.rootItem, ph).length, 0);
-});
-
-test("arrastar MOGRT: imagem que o Premiere não deixa tirar da timeline dá erro e não duplica", async () => {
-    const host = loadHost();
+test("arrastar: arquivo que sumiu ou sem sequência aberta dá mensagem clara", async () => {
+    const host = loadHost({ sequence: null });
     const bridge = loadBridge(host);
-    const dir = tmpDir("midia");
-    const mogrt = path.join(dir, "X.mogrt"), ph = path.join(dir, "X.png");
-    touch(mogrt); touch(ph);
-    dropPlaceholder(host, ph, 0, 2);
-    host.app.project.activeSequence.videoTracks[0].clips[0].remove = () => { throw new Error("travado"); };
-    await assert.rejects(bridge.call("hl_swapPlaceholder", [ph, mogrt, "", "", false]), /não deixou trocar/);
-    assert.strictEqual(host.app.project.activeSequence.mgts.length, 0);
+    const [a] = dragFiles(["a.mp4"]);
+    await assert.rejects(bridge.call("hl_placeAt", [a.f, "video", "", "", 0, 0, ""]), /Abra uma sequência/);
+    const host2 = loadHost();
+    await assert.rejects(loadBridge(host2).call("hl_placeAt", [a.f + "x", "video", "", "", 0, 0, ""]), /Arquivo não encontrado/);
 });
 
 test("host: timeline na primeira trilha livre; cria trilha quando todas estão ocupadas", async () => {

@@ -470,10 +470,10 @@
         dt.effectAllowed = "all";
         // Formato do CEP + lista de URLs + caminho em texto. Na 1.0 eram estes três e o vídeo entrava
         // sempre; mandar só o do CEP (1.1 a 1.2.1) fazia o vídeo falhar ou entrar só o áudio.
-        // MOGRT vai como imagem provisória, trocada pelo MOGRT depois de soltar (1.3.4).
+        // Vídeo e MOGRT vão como imagem provisória, trocada pelo item depois de soltar (host.js).
         var swaps = [];
         var paths = files.map(function (f) {
-            var ph = f.kind === "mogrt" ? app.mogrtDragPath(f) : null;
+            var ph = app.dragPath(f);
             if (ph) swaps.push({ file: f, placeholder: ph });
             return ph || f.path;
         });
@@ -481,7 +481,6 @@
         dt.setData("text/uri-list", paths.map(function (fp) { return L.toFileUrl(fp); }).join("\r\n"));
         dt.setData("text/plain", paths.join("\n"));
         try { dt.setDragImage(ghostFor(files), 14, 14); } catch (err) { /* usa a imagem padrão */ }
-        app.preImport(files);   // vídeo de fora do projeto entrava só com o áudio (teste 2.8 da 1.3.0)
         state.dragging = { files: files, el: el, swaps: swaps };
         el.classList.add("dragging");
         setStatus("Solte na timeline ou no painel Project" + (files.length > 1 ? " (" + files.length + " arquivos)" : "") + ".", "", true);
@@ -491,7 +490,7 @@
         var d = state.dragging;
         state.dragging = null;
         if (d && d.el) d.el.classList.remove("dragging");
-        if (d) app.afterDrag(d.files, d.swaps);   // cópia duplicada de vídeo; troca da imagem provisória pelo MOGRT
+        if (d) app.afterDrag(d.swaps);   // troca as imagens provisórias pelos vídeos/MOGRTs
         var outside = e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight;
         var effect = e.dataTransfer ? e.dataTransfer.dropEffect : "";
         // O dropEffect que volta de outro programa não é confiável (vinha "none" mesmo quando o Premiere

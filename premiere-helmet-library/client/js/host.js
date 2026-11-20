@@ -4,7 +4,7 @@
 (function (app) {
     "use strict";
 
-    var HL = app.HL, BIN_NAME = app.BIN_NAME, L = app.L, inCEP = app.inCEP, cs = app.cs, cfg = app.cfg, els = app.els,
+    var HL = app.HL, BIN_NAME = app.BIN_NAME, L = app.L, inCEP = app.inCEP, cfg = app.cfg, els = app.els,
         state = app.state, setStatus = app.setStatus, isFav = app.isFav;
 
     // ======================================================================
@@ -59,125 +59,103 @@
         });
     }
 
-    // ---------- pré-importação ao arrastar ----------
-    // Vídeo arrastado de fora do projeto entrava só com o áudio (teste 2.8 da 1.3.0); já importado,
-    // entrava certo. Por isso, ao começar a arrastar um VÍDEO, ele é importado na bin em segundo
-    // plano (arquivo já importado é reaproveitado pelo host). Áudio e imagem já entravam certo
-    // arrastando e ficam de fora (1.3.2): assim o Premiere não abre o painel Project à toa.
-    // MOGRT também fica de fora: o Premiere duplicaria a cada arrasto.
+    // ---------- arrastar vídeo e MOGRT com imagem provisória (1.3.4 MOGRT, 1.3.5 vídeo) ----------
+    // O Premiere não aceita .mogrt arrastado de um painel (teste 2.11) e, com vídeo que ainda não
+    // está no projeto, trazia só o áudio (teste 2.8). Importar o vídeo ao começar a arrastar
+    // (1.3.1 a 1.3.3) resolvia o vídeo, mas trazia o painel Project para a frente.
+    // Agora o arrasto leva, no lugar do vídeo/MOGRT, uma imagem provisória com o nome dele
+    // (library.js); imagem entra arrastando sem problema e sem abrir o Project. Depois de soltar:
+    //   1. o host acha cada imagem na sequência ativa, anota onde ela ficou e tira (timeline e projeto);
+    //   2. coloca o item de verdade nesse lugar, um depois do outro se eram vários em fila.
+    // Imagem que só aparece no projeto até a última conferência foi solta no painel Project:
+    // o vídeo é importado na bin; o MOGRT não (o Premiere não aceita MOGRT no Project e abre um aviso).
+    // Arrasto cancelado: não há imagem em lugar nenhum e nada acontece.
+    // Áudio e imagem continuam indo direto (já entravam certo).
 
-    var preImports = {};   // caminho -> Promise(resposta do hl_add, ou null se falhou)
-
-    function preImport(files) {
-        if (!inCEP) return;
-        var chain = Promise.resolve(), fresh = false;
-        files.filter(function (f) { return allowedFile(f) && f.kind === "video" && !preImports[f.path]; }).forEach(function (f) {
-            var b = binFor(f);
-            chain = preImports[f.path] = chain.then(function () {
-                return HLBridge.call("hl_add", [f.path, "video", false, b.bin, b.sub]);
-            }).then(function (data) {
-                if (!data.reused) fresh = true;
-                return data;
-            }, function (err) {
-                HL.log("pré-importação falhou", f.path, err && err.message);
-                return null;
-            });
-        });
-        chain.then(function () { if (fresh) bringPanelBack(); });
-    }
-
-    // Importar faz o Premiere trazer o painel Project para a frente; pede o Helmet Library de volta.
-    // No teste da 1.3.2, pedir só durante o arrasto não adiantou (o Premiere parece ignorar
-    // enquanto o arrasto não termina); por isso a 1.3.3 pede de novo depois de soltar.
-    function bringPanelBack() {
-        try { cs.requestOpenExtension(cs.getExtensionID(), ""); } catch (e) { HL.log("requestOpenExtension falhou", e); }
-        try { window.focus(); } catch (e2) { /* ignora */ }
-    }
-    var PANEL_BACK_AFTER_DROP_MS = [300, 1200];
-
-    // Depois de soltar: se o vídeo foi solto no painel Project, o Premiere importa uma cópia própria
-    // e a pré-importada fica sobrando. O host remove a pré-importada só se ela foi criada por este
-    // arrasto, se existe outra cópia do mesmo arquivo e se ela não está em nenhuma sequência.
-    // Confere duas vezes porque o Premiere pode demorar a terminar a importação dele.
-    var DUPLICATE_CHECKS_MS = [1500, 5000];
-    function afterDrag(files, swaps) {
-        if (!inCEP) return;
-        if (swaps && swaps.length) swapMogrts(swaps);
-        var pendings = [];
-        files.forEach(function (f) {
-            var pending = preImports[f.path];
-            if (!pending) return;
-            pendings.push(pending);
-            pending.then(function (data) {
-                if (!data || data.reused || !data.nodeId) { delete preImports[f.path]; return; }
-                var n = 0;
-                function check() {
-                    setTimeout(function () {
-                        HLBridge.call("hl_dropDuplicate", [f.path, data.nodeId]).then(function (r) {
-                            return r.removed;
-                        }, function (err) {
-                            HL.log("conferência de cópia falhou", f.path, err && err.message);
-                            return true;
-                        }).then(function (stop) {
-                            n++;
-                            if (stop || n >= DUPLICATE_CHECKS_MS.length) delete preImports[f.path];
-                            else check();
-                        });
-                    }, DUPLICATE_CHECKS_MS[n] - (n ? DUPLICATE_CHECKS_MS[n - 1] : 0));
-                }
-                check();
-            });
-        });
-        // algum vídeo foi importado agora por este arrasto: pede o painel de volta depois de soltar
-        Promise.all(pendings).then(function (all) {
-            if (!all.some(function (d) { return d && d.reused === false; })) return;
-            PANEL_BACK_AFTER_DROP_MS.forEach(function (ms) { setTimeout(bringPanelBack, ms); });
-        });
-    }
-
-    // ---------- arrastar MOGRT (1.3.4) ----------
-    // O Premiere não aceita .mogrt arrastado de um painel (teste 2.11). Arrasta-se uma imagem
-    // provisória com o nome do MOGRT (library.js); depois de soltar, o host acha essa imagem na
-    // sequência, tira e coloca o MOGRT no mesmo lugar e trilha, e apaga a imagem do projeto.
-    // Se ela foi solta no painel Project (não aparece em nenhuma sequência até a última conferência),
-    // vira "Só no projeto". Arrasto cancelado: não há imagem em lugar nenhum e nada acontece.
-
-    function mogrtDragPath(f) {
-        if (!inCEP) return null;
+    function dragPath(f) {
+        if (!inCEP || (f.kind !== "mogrt" && f.kind !== "video")) return null;
         try { return L.dragPlaceholder(f.path); } catch (e) {
-            HL.log("imagem provisória do MOGRT falhou", f.path, e);
-            return null;   // arrasta o .mogrt como antes
+            HL.log("imagem provisória falhou", f.path, e);
+            return null;   // arrasta o arquivo como antes
         }
     }
 
     var SWAP_CHECKS_MS = [700, 2000, 5000];
-    function swapMogrts(swaps) {
-        var chain = Promise.resolve(), okNames = [], errors = [];
-        swaps.forEach(function (s) {
-            var b = binFor(s.file);
-            chain = chain.then(function () {
-                var n = 0;
-                function attempt() {
-                    var last = n === SWAP_CHECKS_MS.length - 1;
-                    var wait = SWAP_CHECKS_MS[n] - (n ? SWAP_CHECKS_MS[n - 1] : 0);
-                    return new Promise(function (r) { setTimeout(r, wait); }).then(function () {
-                        return HLBridge.call("hl_swapPlaceholder", [s.placeholder, s.file.path, b.bin, b.sub, last]);
-                    }).then(function (r) {
-                        if (r.swapped) { okNames.push(r.name + " na trilha " + r.track); return; }
-                        if (r.where === "project") { okNames.push(r.name + " importado no projeto"); return; }
-                        if (!last) { n++; return attempt(); }
-                    }, function (err) {
-                        errors.push(s.file.name + ": " + err.message);
+
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    // Fase 1: tira as imagens provisórias, conferindo algumas vezes (o Premiere pode demorar a colocar).
+    function takePlaceholders(swaps) {
+        var n = 0;
+        function round() {
+            var last = n === SWAP_CHECKS_MS.length - 1;
+            var todo = swaps.filter(function (s) { return !s.spot && !s.toProject && !s.error; });
+            if (!todo.length) return Promise.resolve();
+            return wait(SWAP_CHECKS_MS[n] - (n ? SWAP_CHECKS_MS[n - 1] : 0)).then(function () {
+                return todo.reduce(function (chain, s) {
+                    return chain.then(function () {
+                        return HLBridge.call("hl_takePlaceholder", [s.placeholder, last]).then(function (r) {
+                            if (r.found) s.spot = r;
+                            else if (r.inProject) s.toProject = true;
+                        }, function (err) { s.error = err.message; });
                     });
-                }
-                return attempt();
+                }, Promise.resolve());
+            }).then(function () {
+                if (last) return;
+                n++;
+                return round();
             });
+        }
+        return round();
+    }
+
+    // Fase 2: coloca cada item no lugar da imagem dele. Imagens em fila na mesma trilha
+    // (uma começando onde a outra acabava) viram itens em fila, cada um com a duração real.
+    function placeItems(swaps) {
+        var prev = null, results = [];
+        return swaps.reduce(function (chain, s) {
+            return chain.then(function () {
+                var b = binFor(s.file);
+                if (s.error) { results.push({ error: s.file.name + ": " + s.error }); return; }
+                if (s.toProject) {
+                    if (s.file.kind === "mogrt") { results.push({ warning: "“" + s.file.name + "”: MOGRT não entra no painel Project. Arraste para a timeline ou use Adicionar." }); return; }
+                    return HLBridge.call("hl_add", [s.file.path, "video", false, b.bin, b.sub]).then(function (d) {
+                        results.push({ ok: "“" + d.name + "” importado no projeto" });
+                    }, function (err) { results.push({ error: s.file.name + ": " + err.message }); });
+                }
+                if (!s.spot) return;   // arrasto cancelado
+                var start = s.spot.seconds, ticks = s.spot.ticks;
+                if (prev && prev.spot.track === s.spot.track && Math.abs(s.spot.seconds - prev.spot.end) < 0.05 && prev.placedEnd > start) {
+                    start = prev.placedEnd;
+                    ticks = "";   // o host calcula pelos segundos
+                }
+                var kind = s.file.kind === "mogrt" ? "mogrt" : "video";
+                return HLBridge.call("hl_placeAt", [s.file.path, kind, b.bin, b.sub, s.spot.track, start, ticks]).then(function (d) {
+                    s.placedEnd = d.end;
+                    prev = s;
+                    results.push({ ok: "“" + d.name + "” na trilha " + d.track });
+                }, function (err) {
+                    prev = null;
+                    results.push({ error: s.file.name + ": " + err.message });
+                });
+            });
+        }, Promise.resolve()).then(function () { return results; });
+    }
+
+    function swapAfterDrop(swaps) {
+        takePlaceholders(swaps).then(function () { return placeItems(swaps); }).then(function (results) {
+            var errors = results.filter(function (r) { return r.error; }),
+                warnings = results.filter(function (r) { return r.warning; }),
+                oks = results.filter(function (r) { return r.ok; });
+            if (errors.length) setStatus(errors.length === 1 ? errors[0].error : errors.length + " item(ns) falharam. " + errors[0].error, "error");
+            else if (warnings.length) setStatus(warnings[0].warning, "warning");
+            else if (oks.length === 1) setStatus(oks[0].ok + ".", "success");
+            else if (oks.length) setStatus(oks.length + " arquivos adicionados.", "success");
         });
-        chain.then(function () {
-            if (errors.length) setStatus(errors.length === 1 ? errors[0] : errors.length + " MOGRT(s) falharam. " + errors[0], "error");
-            else if (okNames.length === 1) setStatus("“" + okNames[0].replace(/ (na trilha|importado)/, "”$&") + ".", "success");
-            else if (okNames.length) setStatus(okNames.length + " MOGRTs adicionados.", "success");
-        });
+    }
+
+    function afterDrag(swaps) {
+        if (inCEP && swaps && swaps.length) swapAfterDrop(swaps);
     }
 
     function flashTile(f) {
@@ -197,7 +175,6 @@
 
     app.allowedFile = allowedFile;
     app.addFiles = addFiles;
-    app.preImport = preImport;
     app.afterDrag = afterDrag;
-    app.mogrtDragPath = mogrtDragPath;
+    app.dragPath = dragPath;
 })(window.HLApp);
