@@ -323,3 +323,19 @@ os dois coincidirem.
    `PlayerDebugMode` do instalador (o certificado nunca vai para o git: o `.gitignore` já cobre).
 3. **Juntar a branch** `limpeza-seguranca` na `main` depois dos testes.
 4. Melhorias futuras registradas: P1, R6, R7.
+
+## 8. Testes no Premiere da 1.3.0 e correções da 1.3.1
+
+Resultado do `TESTES.md` na 1.3.0: quase tudo passou. O que falhou:
+
+| Item | O que aconteceu | Causa | 1.3.1 |
+|---|---|---|---|
+| 8.2 | Junção para `C:\Windows` aparecia no painel | O Node do Premiere (NW.js 0.63) não diz que uma junção é atalho (`isSymbolicLink` falso) | Toda pasta tem o caminho real (`realpath`) e o destino do link (`readlink`) conferidos; teste novo simula esse Node |
+| 2.5 | Esc não fechava o preview | O Premiere fica com a tecla (já era assim na 1.2.3) | `registerKeyEventsInterest` para o Esc |
+| 2.8, 2.11, 3.4, 4.3 | Vídeo arrastado entrava só com áudio; no segundo arrasto dava certo | O Premiere só monta vídeo + áudio de arquivo que já está no projeto (já era assim na 1.2.3) | Pré-importação na bin ao começar a arrastar (mudança de comportamento aprovada). MOGRT fica de fora |
+| 2.13 | Não dava para buscar fora de uma pasta | Funciona como planejado | README explica: clicar no nome da biblioteca busca nela toda |
+| 5.x, 8.5 | Não testados (faltavam arquivos) | Comando da seção 5 dependia de um `modelo.wav` | Arquivos criados em `E:\Teste Helmet`; comando corrigido |
+| 6.4 | "Nada aconteceu" | Instrução pouco clara: era preciso estragar o `config.json` de novo | Texto corrigido |
+| 7.5, 7.6 | Não testados | Sem HD externo / pasta de rede | Pendente |
+
+**Ideia para o futuro (recurso novo, não feito):** busca em todas as bibliotecas de uma vez.

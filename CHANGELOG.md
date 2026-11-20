@@ -1,5 +1,13 @@
 # Changelog — Helmet Library
 
+## 1.3.1 — correções dos testes no Premiere
+
+- **Atalho de pasta para fora da biblioteca** (ex.: uma junção para `C:\Windows`) voltou a ficar escondido. No Premiere, o sistema nem sempre avisa que a pasta é um atalho; agora toda pasta tem o lugar real conferido.
+- **Esc** volta a funcionar dentro do painel (fecha o preview, limpa a busca ou a seleção). O painel agora pede ao Premiere para receber essa tecla.
+- **Arrastar um vídeo** para a timeline trazia só o áudio na primeira vez. Agora, ao começar a arrastar, o arquivo é importado na bin **Helmet Library** em segundo plano (sem duplicar se já estiver lá). Mudança de comportamento combinada: o arquivo fica na bin mesmo se o arrasto for cancelado. MOGRT não entra nessa pré-importação.
+- README: explica como buscar na biblioteca inteira (clicar no nome da biblioteca antes).
+- TESTES.md: item 6.4 mais claro e comando da seção 5 mais robusto.
+
 ## 1.3.0 — limpeza e segurança
 
 Nenhum recurso novo e nenhuma mudança visual: o painel funciona como antes, só que mais seguro, sem travar com HD/rede desconectados e com mensagens mais claras. Detalhes técnicos na `AUDITORIA.md`.

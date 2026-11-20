@@ -4,7 +4,7 @@ Extensão CEP para o Adobe Premiere Pro que transforma pastas do computador em b
 
 Usa a mesma identidade visual do Helmet DL e do Helmet Cutter: tema Clássico (Violet Terminal com degradês sutis), Geo em caixa alta no nome e Roboto no resto.
 
-Versão atual: **1.3.0** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
+Versão atual: **1.3.1** (o que mudou está no [CHANGELOG.md](CHANGELOG.md)). Testada como referência no Premiere Pro 26.x no Windows.
 
 ## Instalação
 
@@ -36,11 +36,11 @@ Clique em **Adicionar pasta** (embaixo, na barra da esquerda) e escolha uma past
 - Clique numa pasta da árvore para ver os arquivos dela. Os cards de subpasta e o caminho no topo também navegam.
 - **Preview:** clicar num arquivo abre o preview embaixo (áudio e vídeo tocam sozinhos, o que pode ser desligado). Clicar de novo no mesmo arquivo fecha o preview. Vídeos e imagens ganham um preview maior, e a barra de progresso mostra a minutagem exata (passe o mouse para ver o tempo de qualquer ponto, arraste para buscar). O preview só aparece com algum arquivo selecionado: clicar no vazio da grade ou apertar Esc fecha. Ao passar o mouse, só os GIFs animam no card; vídeos e MOGRTs mostram a miniatura parada.
 - **Para usar no projeto:**
-  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**;
+  - arraste o card (ou vários selecionados) para a **timeline** ou o painel **Project**. Ao começar a arrastar, o arquivo já é importado na bin **Helmet Library** em segundo plano (o Premiere só traz imagem e som de um vídeo arrastado quando ele já está no projeto). Por isso, mesmo se você soltar fora do Premiere, o arquivo fica na bin. MOGRT não é pré-importado: para ele, prefira **Adicionar**;
   - ou **Adicionar** / Enter / duplo clique: coloca na timeline, na posição da agulha, na primeira trilha livre (se não houver, cria uma trilha);
   - ou **Só no projeto** / Shift+Enter: importa sem mexer na timeline.
 - **Favoritos:** a estrela no card (aparece ao passar o mouse) ou o menu de clique direito.
-- **Busca:** procura na pasta aberta e em todas as subpastas. O seletor ao lado filtra por tipo.
+- **Busca:** procura na pasta aberta e em todas as subpastas. Para buscar na biblioteca inteira, clique no nome da biblioteca na árvore antes. O seletor ao lado filtra por tipo.
 - **Subpastas juntas:** o botão de camadas, ao lado do contador, mostra numa grade só os arquivos da pasta e de todas as subpastas.
 - **Pitch e Reverse:** mudam só o preview do áudio, nunca o arquivo nem o clipe na timeline.
 - O tamanho das miniaturas fica no controle do canto inferior esquerdo, e a barra lateral pode ser redimensionada arrastando a borda dela.
@@ -122,7 +122,7 @@ Add Keys.reg               libera extensões não assinadas (alternativa manual)
 empacotar.ps1              gera o .zip para distribuir
 tests/                     testes automáticos (Node)
 TESTES.md                  roteiro de testes no Premiere
-AUDITORIA.md               auditoria de segurança e limpeza da versão 1.3.0
+AUDITORIA.md               auditoria de segurança e limpeza (1.3.0) e correções da 1.3.1
 ```
 
 ## Para quem mexe no código
