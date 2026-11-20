@@ -136,7 +136,7 @@
         setStatus(trMsg(msg), "error");
     });
 
-    // troca de idioma (Configurações › Idioma): o texto fixo do index.html já foi trocado
+    // troca de idioma (Configurações › Language / Idioma): o texto fixo do index.html já foi trocado
     // pelo i18n.js; aqui é refeito o que o código monta. A última mensagem da barra de
     // baixo fica no idioma em que foi escrita (a não ser o aviso do modo de demonstração).
     HLI18n.onChange(function () {
@@ -147,7 +147,8 @@
         app.loadItems(false);
         PL.relabel();
         if (!els.settings.hidden) app.updateSettingsTexts();
-        if (L.demo && /demonstra|demo mode/i.test(els.status.textContent)) setStatus(tr(DEMO_TEXT), "warning", true);
+        // o aviso do modo de demonstração (em qualquer dos dois idiomas) é refeito
+        if (L.demo && [DEMO_TEXT, HLI18n.EN[DEMO_TEXT]].indexOf(els.status.textContent) >= 0) setStatus(tr(DEMO_TEXT), "warning", true);
         else if (!els.status.className.match(/success|warning|error/)) setStatus(app.defaultStatus(), "", true);
     });
 

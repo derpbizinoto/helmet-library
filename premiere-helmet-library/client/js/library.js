@@ -554,7 +554,7 @@
             // maxOutputLength: uma "bomba de descompressão" para no limite em vez de encher a memória
             return new Promise(function (resolve, reject) {
                 zlib.inflateRaw(data, { maxOutputLength: maxBytes }, function (err, out) {
-                    if (err) reject(zipError(N(err.code === "ERR_BUFFER_TOO_LARGE" ? "arquivo interno grande demais" : "entrada corrompida")));
+                    if (err) reject(err.code === "ERR_BUFFER_TOO_LARGE" ? zipError(N("arquivo interno grande demais")) : zipError(N("entrada corrompida")));
                     else if (out.length > maxBytes) reject(zipError(N("arquivo interno grande demais")));
                     else resolve(out);
                 });
