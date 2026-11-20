@@ -319,31 +319,39 @@
 
     // ---------- MOGRT ----------
 
-    function mogrtThumb(file, ci) {
-        var info;
-        try { info = L.inspectMogrt(file.path); } catch (e) { return Promise.reject(e); }
-        var meta = { title: info.title || "" };
-        var chain = Promise.resolve();
+    function writeFile(file, data) {
+        return new Promise(function (resolve, reject) {
+            L.fs.writeFile(file, data, function (err) { if (err) reject(err); else resolve(); });
+        });
+    }
 
-        if (info.video) {
-            var vext = info.video.name.split(".").pop().toLowerCase();
-            try {
-                L.fs.writeFileSync(ci.base + "." + vext, L.readZipEntry(file.path, info.video));
-                meta.videoExt = vext;
-            } catch (e) { /* segue sem vídeo */ }
-        }
-        if (info.image) {
-            chain = chain.then(function () {
-                var buf = L.readZipEntry(file.path, info.image);
-                var mime = /\.png$/i.test(info.image.name) ? "image/png" : /\.gif$/i.test(info.image.name) ? "image/gif" : "image/jpeg";
-                return loadImage("data:" + mime + ";base64," + buf.toString("base64")).then(function (img) {
+    function mogrtThumb(file, ci) {
+        var meta = {};
+        return L.inspectMogrt(file.path).catch(function (e) {
+            throw new Error("MOGRT sem preview (arquivo grande demais ou danificado: " + e.message + ")");
+        }).then(function (info) {
+            meta.title = info.title || "";
+            var chain = Promise.resolve();
+            if (info.video) {
+                var vext = info.video.name.split(".").pop().toLowerCase();
+                chain = L.readZipEntry(file.path, info.video, L.ZIP_LIMITS.video).then(function (buf) {
+                    return writeFile(ci.base + "." + vext, buf);
+                }).then(function () { meta.videoExt = vext; }, function () { /* segue sem vídeo */ });
+            }
+            if (info.image) {
+                chain = chain.then(function () {
+                    return L.readZipEntry(file.path, info.image, L.ZIP_LIMITS.image);
+                }).then(function (buf) {
+                    var mime = /\.png$/i.test(info.image.name) ? "image/png" : /\.gif$/i.test(info.image.name) ? "image/gif" : "image/jpeg";
+                    return loadImage("data:" + mime + ";base64," + buf.toString("base64"));
+                }).then(function (img) {
                     saveCanvas(drawContain(img, img.naturalWidth, img.naturalHeight, true), ci);
                     meta.hasThumb = true;
                     meta.width = img.naturalWidth; meta.height = img.naturalHeight;
-                });
-            }).catch(function () { /* tenta pelo vídeo */ });
-        }
-        return chain.then(function () {
+                }).catch(function () { /* tenta pelo vídeo */ });
+            }
+            return chain;
+        }).then(function () {
             if (meta.hasThumb || !meta.videoExt) return meta;
             return videoThumb(L.toFileUrl(ci.base + "." + meta.videoExt), ci, {}).then(function (m) {
                 meta.hasThumb = true; meta.width = m.width; meta.height = m.height; meta.duration = m.duration;

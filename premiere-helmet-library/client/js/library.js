@@ -441,97 +441,150 @@
 
     // ---------- MOGRT (arquivo .zip) ----------
     // Lê só o diretório central e as entradas que interessam (miniatura e vídeo de preview).
+    // MOGRTs costumam vir da internet: nenhum tamanho escrito dentro do arquivo é aceito sem
+    // conferência, tudo tem limite e a leitura é assíncrona (não trava o painel).
 
-    function readZipEntries(file) {
-        var fd = fs.openSync(file, "r");
-        try {
-            var size = fs.fstatSync(fd).size;
-            var tailLen = Math.min(size, 65557);
-            var tail = Buffer.alloc(tailLen);
-            fs.readSync(fd, tail, 0, tailLen, size - tailLen);
-            var eocd = -1;
-            for (var i = tailLen - 22; i >= 0; i--) {
-                if (tail.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
-            }
-            if (eocd < 0) throw new Error("não é um .zip válido");
-            var cdCount = tail.readUInt16LE(eocd + 10);
-            var cdSize = tail.readUInt32LE(eocd + 12);
-            var cdOffset = tail.readUInt32LE(eocd + 16);
-            var cd = Buffer.alloc(cdSize);
-            fs.readSync(fd, cd, 0, cdSize, cdOffset);
-            var entries = [];
-            var pos = 0;
-            for (var n = 0; n < cdCount && pos + 46 <= cd.length; n++) {
-                if (cd.readUInt32LE(pos) !== 0x02014b50) break;
-                var method = cd.readUInt16LE(pos + 10);
-                var compSize = cd.readUInt32LE(pos + 20);
-                var uncompSize = cd.readUInt32LE(pos + 24);
-                var nameLen = cd.readUInt16LE(pos + 28);
-                var extraLen = cd.readUInt16LE(pos + 30);
-                var commentLen = cd.readUInt16LE(pos + 32);
-                var localOffset = cd.readUInt32LE(pos + 42);
-                var name = cd.slice(pos + 46, pos + 46 + nameLen).toString("utf8");
-                entries.push({ name: name, method: method, compSize: compSize, size: uncompSize, offset: localOffset });
-                pos += 46 + nameLen + extraLen + commentLen;
-            }
-            return entries;
-        } finally {
-            fs.closeSync(fd);
-        }
+    var ZIP_LIMITS = {
+        directory: 16 * 1024 * 1024,     // índice do .zip
+        image: 32 * 1024 * 1024,         // miniatura
+        video: 200 * 1024 * 1024,        // vídeo de preview
+        json: 4 * 1024 * 1024            // definition.json (título)
+    };
+
+    function zipError(msg) { var e = new Error(msg); e.code = "MOGRT_INVALID"; return e; }
+
+    function openFile(file) { return p(fs.open, file, "r"); }
+    function closeFile(fd) { return p(fs.close, fd).catch(function () { }); }
+
+    // Lê length bytes a partir de position (confere se veio tudo).
+    function readAt(fd, length, position) {
+        var buf = Buffer.alloc(length);
+        return new Promise(function (resolve, reject) {
+            fs.read(fd, buf, 0, length, position, function (err, n) {
+                if (err) reject(err);
+                else if (n !== length) reject(zipError("arquivo cortado"));
+                else resolve(buf);
+            });
+        });
     }
 
-    function readZipEntry(file, entry) {
-        var fd = fs.openSync(file, "r");
-        try {
-            var head = Buffer.alloc(30);
-            fs.readSync(fd, head, 0, 30, entry.offset);
-            if (head.readUInt32LE(0) !== 0x04034b50) throw new Error("entrada corrompida");
-            var start = entry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28);
-            var data = Buffer.alloc(entry.compSize);
-            fs.readSync(fd, data, 0, entry.compSize, start);
+    function withFile(file, fn) {
+        return openFile(file).then(function (fd) {
+            return Promise.resolve().then(function () { return fn(fd); }).then(
+                function (r) { return closeFile(fd).then(function () { return r; }); },
+                function (e) { return closeFile(fd).then(function () { throw e; }); });
+        });
+    }
+
+    function readZipEntries(file) {
+        return withFile(file, function (fd) {
+            return p(fs.fstat, fd).then(function (st) {
+                var size = st.size;
+                if (size < 22) throw zipError("não é um .zip válido");
+                var tailLen = Math.min(size, 65557);
+                return readAt(fd, tailLen, size - tailLen).then(function (tail) {
+                    var eocd = -1;
+                    for (var i = tailLen - 22; i >= 0; i--) {
+                        if (tail.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+                    }
+                    if (eocd < 0) throw zipError("não é um .zip válido");
+                    var cdCount = tail.readUInt16LE(eocd + 10);
+                    var cdSize = tail.readUInt32LE(eocd + 12);
+                    var cdOffset = tail.readUInt32LE(eocd + 16);
+                    if (cdSize > ZIP_LIMITS.directory || cdOffset + cdSize > size) throw zipError("índice do .zip inválido");
+                    return readAt(fd, cdSize, cdOffset).then(function (cd) {
+                        var entries = [];
+                        var pos = 0;
+                        for (var n = 0; n < cdCount && pos + 46 <= cd.length; n++) {
+                            if (cd.readUInt32LE(pos) !== 0x02014b50) break;
+                            var nameLen = cd.readUInt16LE(pos + 28);
+                            var e = {
+                                name: cd.slice(pos + 46, pos + 46 + nameLen).toString("utf8"),
+                                method: cd.readUInt16LE(pos + 10),
+                                compSize: cd.readUInt32LE(pos + 20),
+                                size: cd.readUInt32LE(pos + 24),
+                                offset: cd.readUInt32LE(pos + 42)
+                            };
+                            // entrada que diz estar fora do arquivo: ignorada
+                            if (e.offset + 30 + e.compSize <= size) entries.push(e);
+                            pos += 46 + nameLen + cd.readUInt16LE(pos + 30) + cd.readUInt16LE(pos + 32);
+                        }
+                        return entries;
+                    });
+                });
+            });
+        });
+    }
+
+    // Conteúdo de uma entrada, no máximo maxBytes depois de descompactado.
+    function readZipEntry(file, entry, maxBytes) {
+        maxBytes = maxBytes || ZIP_LIMITS.video;
+        if (entry.size > maxBytes || entry.compSize > maxBytes) return Promise.reject(zipError("arquivo interno grande demais"));
+        return withFile(file, function (fd) {
+            return readAt(fd, 30, entry.offset).then(function (head) {
+                if (head.readUInt32LE(0) !== 0x04034b50) throw zipError("entrada corrompida");
+                var start = entry.offset + 30 + head.readUInt16LE(26) + head.readUInt16LE(28);
+                return readAt(fd, entry.compSize, start);
+            });
+        }).then(function (data) {
             if (entry.method === 0) return data;
-            if (entry.method === 8) return zlib.inflateRawSync(data);
-            throw new Error("compressão não suportada (" + entry.method + ")");
-        } finally {
-            fs.closeSync(fd);
+            if (entry.method !== 8) throw zipError("compressão não suportada (" + entry.method + ")");
+            // maxOutputLength: uma "bomba de descompressão" para no limite em vez de encher a memória
+            return new Promise(function (resolve, reject) {
+                zlib.inflateRaw(data, { maxOutputLength: maxBytes }, function (err, out) {
+                    if (err) reject(err.code === "ERR_BUFFER_TOO_LARGE" ? zipError("arquivo interno grande demais") : zipError("entrada corrompida"));
+                    else if (out.length > maxBytes) reject(zipError("arquivo interno grande demais"));
+                    else resolve(out);
+                });
+            });
+        });
+    }
+
+    // Título do template (prefere pt-BR) lido do definition.json.
+    function mogrtTitle(json) {
+        var cn = json && (json.capsuleNameLocalized || json.capsuleName);
+        if (cn && typeof cn === "object" && Array.isArray(cn.strDB) && cn.strDB.length) {
+            var pick = function (loc) { return cn.strDB.filter(function (s) { return s && s.localeString === loc; })[0]; };
+            cn = (pick("pt_BR") || pick("en_US") || cn.strDB[0] || {}).str;
+        } else if (cn && typeof cn === "object") {
+            cn = cn.pt_BR || cn.en_US;
         }
+        return typeof cn === "string" ? cn : "";
     }
 
     // Escolhe a melhor miniatura e o vídeo de preview dentro do MOGRT.
+    // Promise<{ image: entrada|null, video: entrada|null, title }>
     function inspectMogrt(file) {
-        var entries = readZipEntries(file);
-        // Templates da Adobe trazem thumb.png/thumb.mp4 e variantes por idioma (thumb_de_DE.png…):
-        // prefere pt_BR, depois a padrão, depois en_US, depois qualquer "thumb/preview".
-        var score = function (e) {
-            var base = e.name.split("/").pop().toLowerCase();
-            var depth = e.name.split("/").length - 1;
-            var s = 50;
-            if (/^thumb_pt_br\./.test(base)) s = 0;
-            else if (/^thumb\./.test(base)) s = 1;
-            else if (/^thumb_en_us\./.test(base)) s = 2;
-            else if (/thumb|preview|poster/.test(base)) s = 3;
-            return s + depth * 10;
-        };
-        var imgs = entries.filter(function (e) { return /\.(png|jpe?g|gif)$/i.test(e.name) && e.size > 0; });
-        var vids = entries.filter(function (e) { return /\.(mp4|m4v|mov|webm)$/i.test(e.name) && e.size > 0; });
-        imgs.sort(function (a, b) { return score(a) - score(b) || b.size - a.size; });
-        vids.sort(function (a, b) { return score(a) - score(b) || b.size - a.size; });
-        var info = { image: imgs[0] || null, video: vids[0] || null, title: "" };
-        var def = entries.filter(function (e) { return /(^|\/)definition\.json$/i.test(e.name); })[0];
-        if (def && def.size < 4 * 1024 * 1024) {
-            try {
-                var json = JSON.parse(readZipEntry(file, def).toString("utf8").replace(/^﻿/, ""));
-                var cn = json.capsuleNameLocalized || json.capsuleName;
-                if (cn && typeof cn === "object" && cn.strDB && cn.strDB.length) {
-                    var pick = function (loc) { return cn.strDB.filter(function (s) { return s.localeString === loc; })[0]; };
-                    cn = (pick("pt_BR") || pick("en_US") || cn.strDB[0]).str;
-                } else if (cn && typeof cn === "object") {
-                    cn = cn.pt_BR || cn.en_US;
-                }
-                if (typeof cn === "string") info.title = cn;
-            } catch (e) { /* sem título */ }
-        }
-        return info;
+        return readZipEntries(file).then(function (entries) {
+            // Templates da Adobe trazem thumb.png/thumb.mp4 e variantes por idioma (thumb_de_DE.png…):
+            // prefere pt_BR, depois a padrão, depois en_US, depois qualquer "thumb/preview".
+            var score = function (e) {
+                var base = e.name.split("/").pop().toLowerCase();
+                var depth = e.name.split("/").length - 1;
+                var s = 50;
+                if (/^thumb_pt_br\./.test(base)) s = 0;
+                else if (/^thumb\./.test(base)) s = 1;
+                else if (/^thumb_en_us\./.test(base)) s = 2;
+                else if (/thumb|preview|poster/.test(base)) s = 3;
+                return s + depth * 10;
+            };
+            var pickBest = function (re, max) {
+                var list = entries.filter(function (e) { return re.test(e.name) && e.size > 0 && e.size <= max; });
+                list.sort(function (a, b) { return score(a) - score(b) || b.size - a.size; });
+                return list[0] || null;
+            };
+            var info = {
+                image: pickBest(/\.(png|jpe?g|gif)$/i, ZIP_LIMITS.image),
+                video: pickBest(/\.(mp4|m4v|mov|webm)$/i, ZIP_LIMITS.video),
+                title: ""
+            };
+            var def = entries.filter(function (e) { return /(^|\/)definition\.json$/i.test(e.name); })[0];
+            if (!def || def.size > ZIP_LIMITS.json) return info;
+            return readZipEntry(file, def, ZIP_LIMITS.json).then(function (buf) {
+                info.title = mogrtTitle(JSON.parse(buf.toString("utf8").replace(/^﻿/, "")));
+                return info;
+            }, function () { return info; }).catch(function () { return info; });   // sem título
+        });
     }
 
     // ---------- vigia de pastas ----------
@@ -620,6 +673,7 @@
         removePreview: removePreview,
         inspectMogrt: inspectMogrt,
         readZipEntry: readZipEntry,
+        ZIP_LIMITS: ZIP_LIMITS,
         watch: watch,
         unwatch: unwatch,
         toFileUrl: toFileUrl,

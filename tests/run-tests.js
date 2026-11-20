@@ -267,6 +267,91 @@ test("previews: .json de cache vindo de outro PC só é aceito no formato espera
 });
 
 // ---------------------------------------------------------------------------
+// MOGRT (.zip)
+// ---------------------------------------------------------------------------
+
+// Monta um .zip simples. entries: [{ name, data, deflate, fakeSize }]
+function makeZip(entries) {
+    const zlib = require("zlib");
+    const locals = [], centrals = [];
+    let offset = 0;
+    entries.forEach((e) => {
+        const raw = Buffer.from(e.data);
+        const body = e.deflate ? zlib.deflateRawSync(raw) : raw;
+        const name = Buffer.from(e.name, "utf8");
+        const size = e.fakeSize != null ? e.fakeSize : raw.length;
+        const lh = Buffer.alloc(30);
+        lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(e.deflate ? 8 : 0, 8);
+        lh.writeUInt32LE(body.length, 18); lh.writeUInt32LE(size, 22); lh.writeUInt16LE(name.length, 26);
+        const ch = Buffer.alloc(46);
+        ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(e.deflate ? 8 : 0, 10);
+        ch.writeUInt32LE(body.length, 20); ch.writeUInt32LE(size, 24); ch.writeUInt16LE(name.length, 28);
+        ch.writeUInt32LE(offset, 42);
+        locals.push(lh, name, body);
+        centrals.push(ch, name);
+        offset += 30 + name.length + body.length;
+    });
+    const cd = Buffer.concat(centrals);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+    end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(offset, 16);
+    return Buffer.concat(locals.concat([cd, end]));
+}
+
+test("mogrt: acha miniatura, vídeo e título em pt-BR", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const file = path.join(tmpDir("mogrt"), "Título 🎬.mogrt");
+    const def = { capsuleNameLocalized: { strDB: [{ localeString: "en_US", str: "Lower Third" }, { localeString: "pt_BR", str: "Terço Inferior" }] } };
+    fs.writeFileSync(file, makeZip([
+        { name: "thumb_de_DE.png", data: "alemão" },
+        { name: "thumb.png", data: "png padrão", deflate: true },
+        { name: "thumb.mp4", data: "vídeo", deflate: true },
+        { name: "definition.json", data: "﻿" + JSON.stringify(def), deflate: true }
+    ]));
+    const info = await L.inspectMogrt(file);
+    assert.strictEqual(info.image.name, "thumb.png");
+    assert.strictEqual(info.video.name, "thumb.mp4");
+    assert.strictEqual(info.title, "Terço Inferior");
+    assert.strictEqual((await L.readZipEntry(file, info.image)).toString(), "png padrão");
+});
+
+test("mogrt: 'bomba de descompressão' para no limite em vez de encher a memória", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const file = path.join(tmpDir("mogrt"), "bomba.mogrt");
+    fs.writeFileSync(file, makeZip([{ name: "thumb.mp4", data: Buffer.alloc(2 * 1024 * 1024), deflate: true, fakeSize: 10 }]));
+    const info = await L.inspectMogrt(file);
+    await assert.rejects(L.readZipEntry(file, info.video, 64 * 1024), /grande demais/);
+});
+
+test("mogrt: arquivo danificado ou com tamanhos falsos é recusado sem travar", async () => {
+    const L = loadLibrary(tmpDir("cfg"));
+    const dir = tmpDir("mogrt");
+    const good = makeZip([{ name: "thumb.png", data: "png" }]);
+
+    fs.writeFileSync(path.join(dir, "vazio.mogrt"), "");
+    await assert.rejects(L.inspectMogrt(path.join(dir, "vazio.mogrt")), /não é um \.zip/);
+
+    fs.writeFileSync(path.join(dir, "texto.mogrt"), "isto não é zip nenhum, só texto qualquer aqui");
+    await assert.rejects(L.inspectMogrt(path.join(dir, "texto.mogrt")), /não é um \.zip/);
+
+    const hugeDir = Buffer.from(good);
+    hugeDir.writeUInt32LE(0xFFFFFFF0, hugeDir.length - 22 + 12);     // índice de ~4 GB
+    fs.writeFileSync(path.join(dir, "indice.mogrt"), hugeDir);
+    await assert.rejects(L.inspectMogrt(path.join(dir, "indice.mogrt")), /índice/);
+
+    const farEntry = Buffer.from(good);
+    const cdStart = farEntry.readUInt32LE(farEntry.length - 22 + 16);
+    farEntry.writeUInt32LE(0x7FFFFFFF, cdStart + 42);                 // entrada "fora" do arquivo
+    fs.writeFileSync(path.join(dir, "fora.mogrt"), farEntry);
+    const info = await L.inspectMogrt(path.join(dir, "fora.mogrt"));
+    assert.strictEqual(info.image, null);
+
+    const bigImage = makeZip([{ name: "thumb.png", data: "x", fakeSize: 500 * 1024 * 1024 }]);
+    fs.writeFileSync(path.join(dir, "grande.mogrt"), bigImage);
+    assert.strictEqual((await L.inspectMogrt(path.join(dir, "grande.mogrt"))).image, null, "miniatura acima do limite é ignorada");
+});
+
+// ---------------------------------------------------------------------------
 // Execução
 // ---------------------------------------------------------------------------
 
