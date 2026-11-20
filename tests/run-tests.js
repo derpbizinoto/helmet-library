@@ -641,72 +641,217 @@ test("arrastar: imagem provisória com o nome do arquivo, fora do cache de previ
     assert.strictEqual(path.basename(v), "clipe.final.png");
 });
 
-function dropPlaceholder(host, file, track, seconds) {
-    const item = host.app.project.rootItem.add(new mock.ClipItem(path.resolve(file), 5));   // o Premiere importa ao soltar
-    if (track !== undefined) host.app.project.activeSequence.videoTracks[track].overwriteClip(item, seconds);
+// Simula o Premiere soltando a imagem: importa e (se track veio) coloca na trilha. A soltura é UMA
+// ação: o "Ctrl+Z" (qe.project.undo) tira o clipe, o item e as trilhas que ela criou e devolve o
+// que ela cobriu. opts: { undoable (padrão true), newTracks, covers: [trilha, clipe] }
+function dropPlaceholder(host, file, track, seconds, opts) {
+    opts = opts || {};
+    const project = host.app.project, seq = project.activeSequence;
+    const item = project.rootItem.add(new mock.ClipItem(path.resolve(file), 5));   // o Premiere importa ao soltar
+    const added = opts.newTracks || 0;
+    for (let i = 0; i < added; i++) seq.videoTracks.push(new mock.Track());
+    let covered = null;
+    if (opts.covers) { const t = seq.videoTracks[opts.covers[0]]; covered = t.clips.splice(t.clips.indexOf(opts.covers[1]), 1)[0]; }
+    if (track !== undefined) seq.videoTracks[track].overwriteClip(item, seconds);
+    if (opts.undoable !== false) {
+        project.undoStack.push(() => {
+            seq.videoTracks.forEach((t) => { for (let i = t.clips.length - 1; i >= 0; i--) if (t.clips[i].item === item) t.clips.splice(i, 1); });
+            item.parent.children.splice(item.parent.children.indexOf(item), 1);
+            seq.videoTracks.splice(seq.videoTracks.length - added, added);
+            if (covered) seq.videoTracks[opts.covers[0]].clips.push(covered);
+        });
+    }
     return item;
 }
 function dragFiles(names) {
     const dir = tmpDir("midia");
     return names.map((n) => { const f = path.join(dir, n), ph = path.join(dir, n.replace(/\.[^.]+$/, "") + ".png"); touch(f); touch(ph); return { f, ph }; });
 }
+function noTempBins(host) {
+    return !host.app.project.rootItem.children.some((c) => /removendo|desfazer/.test(c.name));
+}
 
-test("arrastar: tira a imagem da timeline e do projeto e diz onde ela estava", async () => {
+test("arrastar: tira a imagem da timeline e do projeto e diz onde ela estava (sem desfazer)", async () => {
     const host = loadHost();
     const bridge = loadBridge(host);
     const [x] = dragFiles(["Título.mogrt"]);
-    const item = dropPlaceholder(host, x.ph);
+    const item = dropPlaceholder(host, x.ph, undefined, 0, { undoable: false });
 
     // Premiere ainda não colocou na timeline: não mexe em nada
-    eq(await bridge.call("hl_takePlaceholder", [x.ph, false]), { found: 0 });
+    eq(await bridge.call("hl_takeDrop", [x.ph, false, false]), { spots: [{ found: 0 }], undone: false });
     assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 1);
 
     host.app.project.activeSequence.videoTracks[1].overwriteClip(item, 4);
-    const r = await bridge.call("hl_takePlaceholder", [x.ph, false]);
-    eq([r.found, r.track, r.seconds, r.end, r.ticks], [1, 1, 4, 9, mock.time(4).ticks]);
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, false]);
+    const s = r.spots[0];
+    eq([r.undone, s.found, s.track, s.seconds, s.end, s.ticks], [false, 1, 1, 4, 9, mock.time(4).ticks]);
+    assert.strictEqual(host.app.project.undoCount, 0, "sem desfazer");
     assert.strictEqual(host.app.project.activeSequence.videoTracks[1].clips.length, 0, "imagem sai da timeline");
     assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0, "imagem sai do projeto");
-    assert.ok(!host.app.project.rootItem.children.some((c) => /removendo/.test(c.name)), "sem bin temporária sobrando");
+    assert.ok(noTempBins(host), "sem bin temporária sobrando");
+});
+
+test("arrastar só de MOGRT: desfaz a soltura como o Composer e recria a trilha que ela criou", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const seq = host.app.project.activeSequence;
+    const [x] = dragFiles(["Título.mogrt"]);
+    seq.videoTracks[1].overwriteClip(new mock.ClipItem(path.resolve(tmpDir("m"), "fundo.mp4"), 10), 0);
+    const other = seq.videoTracks[1].clips[0];
+    // solto acima da última trilha: o Premiere cria a V4 para a imagem
+    dropPlaceholder(host, x.ph, 3, 2, { newTracks: 1 });
+    eq(seq.videoTracks.length, 4);
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    eq([r.undone, r.spots[0].found, r.spots[0].track, r.spots[0].seconds], [true, 1, 3, 2]);
+    eq(host.app.project.undoCount, 1, "um Ctrl+Z só");
+    eq(seq.videoTracks.length, 4, "a trilha que a soltura criou volta");
+    eq(seq.videoTracks[3].clips.length, 0, "imagem saiu");
+    assert.strictEqual(seq.videoTracks[1].clips[0], other, "clipe que já estava continua");
+    assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0, "imagem sai do projeto");
+    assert.ok(noTempBins(host));
+});
+
+test("arrastar só de MOGRT: o que a imagem cobriu volta inteiro", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const seq = host.app.project.activeSequence;
+    const [x] = dragFiles(["Card.mogrt"]);
+    seq.videoTracks[0].overwriteClip(new mock.ClipItem(path.resolve(tmpDir("m"), "fundo.mp4"), 10), 0);
+    const covered = seq.videoTracks[0].clips[0];
+    dropPlaceholder(host, x.ph, 0, 0, { covers: [0, covered] });
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    eq([r.undone, r.spots[0].track, r.spots[0].seconds], [true, 0, 0]);
+    eq(seq.videoTracks[0].clips.length, 1);
+    assert.strictEqual(seq.videoTracks[0].clips[0], covered, "clipe coberto voltou");
+});
+
+test("arrastar só de MOGRT: vários de uma vez saem com um Ctrl+Z e cada um diz onde estava", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const seq = host.app.project.activeSequence;
+    const [a, b] = dragFiles(["A.mogrt", "B.mogrt"]);
+    const ia = host.app.project.rootItem.add(new mock.ClipItem(path.resolve(a.ph), 5));
+    const ib = host.app.project.rootItem.add(new mock.ClipItem(path.resolve(b.ph), 5));
+    seq.videoTracks[0].overwriteClip(ia, 1);
+    seq.videoTracks[0].overwriteClip(ib, 6);
+    host.app.project.undoStack.push(() => {
+        seq.videoTracks[0].clips.splice(0);
+        host.app.project.rootItem.children.splice(0);
+    });
+    const r = await bridge.call("hl_takeDrop", [a.ph + "\n" + b.ph, false, true]);
+    eq(r.spots.map((s) => [s.found, s.track, s.seconds]), [[1, 0, 1], [1, 0, 6]]);
+    eq(host.app.project.undoCount, 1);
+});
+
+test("arrastar: se o Ctrl+Z não tirou a imagem, ela sai clipe por clipe", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const [x] = dragFiles(["X.mogrt"]);
+    dropPlaceholder(host, x.ph, 0, 2, { undoable: false });
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    eq([r.undone, r.spots[0].found], [true, 1]);
+    eq(host.app.project.activeSequence.videoTracks[0].clips.length, 0);
+    assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0);
 });
 
 test("arrastar: solto no Project só é tratado na última conferência; cancelado não faz nada", async () => {
     const host = loadHost();
     const bridge = loadBridge(host);
     const [x] = dragFiles(["Card.mogrt"]);
-    eq(await bridge.call("hl_takePlaceholder", [x.ph, true]), { found: 0 });   // cancelado
+    eq(await bridge.call("hl_takeDrop", [x.ph, true, true]), { spots: [{ found: 0 }], undone: false });   // cancelado
     dropPlaceholder(host, x.ph);
-    eq(await bridge.call("hl_takePlaceholder", [x.ph, false]), { found: 0 });
-    eq(await bridge.call("hl_takePlaceholder", [x.ph, true]), { found: 0, inProject: true });
+    eq(await bridge.call("hl_takeDrop", [x.ph, false, true]), { spots: [{ found: 0 }], undone: false });
+    eq(await bridge.call("hl_takeDrop", [x.ph, true, true]), { spots: [{ found: 0, inProject: true }], undone: false });
     assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0, "imagem sai do projeto");
+    assert.strictEqual(host.app.project.undoCount, 0, "Project não usa Ctrl+Z");
     assert.strictEqual(host.app.project.imports.length, 0, "nada é importado pelo host aqui");
+});
+
+test("arrastar: solto no Source Monitor fecha a imagem e avisa", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const [x] = dragFiles(["Card.mogrt"]);
+    const item = dropPlaceholder(host, x.ph, undefined, 0, { undoable: false });
+    host.app.sourceMonitor.item = item;
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    eq([r.sourceMonitor, r.undone], [true, false]);
+    assert.strictEqual(host.app.sourceMonitor.item, null, "Source Monitor fechado");
+    assert.strictEqual(copiesOf(host.app.project.rootItem, x.ph).length, 0, "imagem sai do projeto");
+    // outro arquivo aberto no Source Monitor não é tocado
+    const other = host.app.project.rootItem.add(new mock.ClipItem(path.resolve(tmpDir("m"), "v.mp4"), 3));
+    host.app.sourceMonitor.item = other;
+    dropPlaceholder(host, x.ph, 0, 0, { undoable: false });
+    const r2 = await bridge.call("hl_takeDrop", [x.ph, false, false]);
+    assert.ok(!r2.sourceMonitor);
+    assert.strictEqual(host.app.sourceMonitor.item, other);
+});
+
+test("arrastar: solto na timeline sem sequência desfaz a sequência nova e avisa", async () => {
+    const host = loadHost({ sequence: null });
+    const bridge = loadBridge(host);
+    const project = host.app.project;
+    const [x] = dragFiles(["Card.mogrt"]);
+    // o Premiere importa, cria a sequência com o nome da imagem e coloca a imagem (3 ações)
+    const item = project.rootItem.add(new mock.ClipItem(path.resolve(x.ph), 5));
+    project.undoStack.push(() => project.rootItem.children.splice(project.rootItem.children.indexOf(item), 1));
+    const seq = new mock.Sequence(1, 1);
+    seq.name = item.name;
+    project.activeSequence = seq;
+    project.undoStack.push(() => { project.activeSequence = null; });
+    seq.videoTracks[0].overwriteClip(item, 0);
+    project.undoStack.push(() => seq.videoTracks[0].clips.splice(0));
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    eq(r.newSequence, true);
+    eq(project.activeSequence, null, "a sequência nova saiu");
+    eq(copiesOf(project.rootItem, x.ph).length, 0, "imagem sai do projeto");
+    eq(project.undoCount, 4, "3 Ctrl+Z da soltura + 1 para impedir o refazer");
+    assert.ok(noTempBins(host), "a bin do impedir-refazer não fica");
+});
+
+test("arrastar: sequência do usuário com o mesmo nome e outros clipes não é desfeita", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const seq = host.app.project.activeSequence;
+    const [x] = dragFiles(["Card.mogrt"]);
+    seq.videoTracks[1].overwriteClip(new mock.ClipItem(path.resolve(tmpDir("m"), "v.mp4"), 3), 0);
+    const item = dropPlaceholder(host, x.ph, 0, 0);
+    seq.name = item.name;
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    assert.ok(!r.newSequence);
+    eq([r.undone, r.spots[0].found], [true, 1]);
 });
 
 test("arrastar: imagem que o Premiere não deixa tirar da timeline dá erro", async () => {
     const host = loadHost();
     const bridge = loadBridge(host);
     const [x] = dragFiles(["X.mogrt"]);
-    dropPlaceholder(host, x.ph, 0, 2);
+    dropPlaceholder(host, x.ph, 0, 2, { undoable: false });
     host.app.project.activeSequence.videoTracks[0].clips[0].remove = () => { throw new Error("travado"); };
-    await assert.rejects(bridge.call("hl_takePlaceholder", [x.ph, false]), /não deixou trocar/);
+    await assert.rejects(bridge.call("hl_takeDrop", [x.ph, false, false]), /não deixou trocar/);
 });
 
-test("arrastar: MOGRT entra no lugar da imagem (tempo exato e trilha)", async () => {
+test("arrastar: MOGRT entra no lugar da imagem (tempo exato e trilha) e fica selecionado", async () => {
     const host = loadHost();
     const bridge = loadBridge(host);
-    const [x] = dragFiles(["Título.mogrt"]);
+    const [x, y] = dragFiles(["Título.mogrt", "Outro.mogrt"]);
     const seq = host.app.project.activeSequence;
-    const d = await bridge.call("hl_placeMogrt", [x.f, 1, 4, mock.time(4).ticks]);
+    const d = await bridge.call("hl_placeMogrt", [x.f, 1, 4, mock.time(4).ticks, false]);
     eq(d, { name: "Título", track: "V2", end: 9 });
     eq(seq.mgts.map((m) => [m.v, String(m.ticks)]), [[1, mock.time(4).ticks]]);
+    eq(seq.selection.map((c) => c.name), ["Título"]);
+    await bridge.call("hl_placeMogrt", [y.f, 1, 9, "", true]);
+    eq(seq.selection.map((c) => c.name), ["Título", "Outro"], "o segundo soma à seleção");
+    await bridge.call("hl_placeMogrt", [x.f, 2, 0, "", false]);
+    eq(seq.selection.map((c) => c.name), ["Título"], "arrasto novo começa seleção nova");
 });
 
 test("arrastar: arquivo que sumiu ou sem sequência aberta dá mensagem clara", async () => {
     const host = loadHost({ sequence: null });
     const bridge = loadBridge(host);
     const [a] = dragFiles(["a.mogrt"]);
-    await assert.rejects(bridge.call("hl_placeMogrt", [a.f, 0, 0, ""]), /Abra uma sequência/);
+    await assert.rejects(bridge.call("hl_placeMogrt", [a.f, 0, 0, "", false]), /Abra uma sequência/);
     const host2 = loadHost();
-    await assert.rejects(loadBridge(host2).call("hl_placeMogrt", [a.f + "x", 0, 0, ""]), /Arquivo não encontrado/);
+    await assert.rejects(loadBridge(host2).call("hl_placeMogrt", [a.f + "x", 0, 0, "", false]), /Arquivo não encontrado/);
 });
 
 test("host: timeline na primeira trilha livre; cria trilha quando todas estão ocupadas", async () => {

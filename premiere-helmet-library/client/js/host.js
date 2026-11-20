@@ -59,14 +59,16 @@
         });
     }
 
-    // ---------- arrastar MOGRT com imagem provisória (1.3.4) ----------
+    // ---------- arrastar MOGRT com imagem provisória (1.3.4; passos do Composer desde a 1.3.7) ----------
     // O Premiere não aceita .mogrt arrastado de um painel (teste 2.11). O arrasto leva, no lugar do
     // MOGRT, uma imagem provisória com o nome dele (library.js); imagem entra arrastando sem problema.
-    // Depois de soltar:
-    //   1. o host acha cada imagem na sequência ativa, anota onde ela ficou e tira (timeline e projeto);
-    //   2. coloca o MOGRT nesse lugar, um depois do outro se eram vários em fila.
+    // Logo ao soltar (o Composer também confere na hora) e de novo depois, se ainda não achou:
+    //   1. o host acha as imagens na sequência ativa, anota onde ficaram e desfaz a soltura
+    //      (hl_takeDrop; detalhes em host/index.jsx);
+    //   2. coloca cada MOGRT nesse lugar, um depois do outro se eram vários em fila, e seleciona.
     // Imagem que só aparece no projeto até a última conferência foi solta no painel Project: o MOGRT
     // não é importado (o Premiere não aceita MOGRT no Project e abre um aviso).
+    // Solta no Source Monitor ou na timeline sem sequência: sai e a barra de baixo explica.
     // Arrasto cancelado: não há imagem em lugar nenhum e nada acontece.
     // Vídeo, áudio e imagem vão direto (vídeo do jeito do Animation Composer: ver grid.js).
 
@@ -78,26 +80,36 @@
         }
     }
 
-    var SWAP_CHECKS_MS = [700, 2000, 5000];
+    var SWAP_CHECKS_MS = [0, 700, 2000, 5000];
+
+    var WRONG_DROP = {
+        sourceMonitor: "Arrastar para o Source Monitor não funciona. Arraste para a timeline ou use Adicionar.",
+        newSequence: "Arraste para uma sequência já aberta na timeline."
+    };
 
     function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
     // Fase 1: tira as imagens provisórias, conferindo algumas vezes (o Premiere pode demorar a colocar).
-    function takePlaceholders(swaps) {
-        var n = 0;
+    // Desfazer a soltura só uma vez por arrasto e só se o arrasto era só de MOGRTs (com outros
+    // arquivos juntos, desfazer tiraria esses arquivos também): nos outros casos tira clipe por clipe.
+    function takePlaceholders(swaps, onlyMogrts) {
+        var n = 0, undone = false;
         function round() {
             var last = n === SWAP_CHECKS_MS.length - 1;
-            var todo = swaps.filter(function (s) { return !s.spot && !s.toProject && !s.error; });
+            var todo = swaps.filter(function (s) { return !s.spot && !s.toProject && !s.error && !s.wrongDrop; });
             if (!todo.length) return Promise.resolve();
             return wait(SWAP_CHECKS_MS[n] - (n ? SWAP_CHECKS_MS[n - 1] : 0)).then(function () {
-                return todo.reduce(function (chain, s) {
-                    return chain.then(function () {
-                        return HLBridge.call("hl_takePlaceholder", [s.placeholder, last]).then(function (r) {
-                            if (r.found) s.spot = r;
-                            else if (r.inProject) s.toProject = true;
-                        }, function (err) { s.error = err.message; });
+                var list = todo.map(function (s) { return s.placeholder; }).join("\n");
+                return HLBridge.call("hl_takeDrop", [list, last, onlyMogrts && !undone]).then(function (r) {
+                    if (r.undone) undone = true;
+                    todo.forEach(function (s, i) {
+                        var sp = r.spots[i] || {};
+                        if (r.sourceMonitor) s.wrongDrop = "sourceMonitor";
+                        else if (r.newSequence) s.wrongDrop = "newSequence";
+                        else if (sp.found) s.spot = sp;
+                        else if (sp.inProject) s.toProject = true;
                     });
-                }, Promise.resolve());
+                }, function (err) { todo.forEach(function (s) { s.error = err.message; }); });
             }).then(function () {
                 if (last) return;
                 n++;
@@ -109,11 +121,13 @@
 
     // Fase 2: coloca cada MOGRT no lugar da imagem dele. Imagens em fila na mesma trilha
     // (uma começando onde a outra acabava) viram MOGRTs em fila, cada um com a duração real.
+    // Os MOGRTs colocados ficam selecionados, como no Composer.
     function placeItems(swaps) {
-        var prev = null, results = [];
+        var prev = null, placed = 0, results = [];
         return swaps.reduce(function (chain, s) {
             return chain.then(function () {
                 if (s.error) { results.push({ error: s.file.name + ": " + s.error }); return; }
+                if (s.wrongDrop) { results.push({ warning: WRONG_DROP[s.wrongDrop] }); return; }
                 if (s.toProject) { results.push({ warning: "“" + s.file.name + "”: MOGRT não entra no painel Project. Arraste para a timeline ou use Adicionar." }); return; }
                 if (!s.spot) return;   // arrasto cancelado
                 var start = s.spot.seconds, ticks = s.spot.ticks;
@@ -121,9 +135,10 @@
                     start = prev.placedEnd;
                     ticks = "";   // o host calcula pelos segundos
                 }
-                return HLBridge.call("hl_placeMogrt", [s.file.path, s.spot.track, start, ticks]).then(function (d) {
+                return HLBridge.call("hl_placeMogrt", [s.file.path, s.spot.track, start, ticks, placed > 0]).then(function (d) {
                     s.placedEnd = d.end;
                     prev = s;
+                    placed++;
                     results.push({ ok: "“" + d.name + "” na trilha " + d.track });
                 }, function (err) {
                     prev = null;
@@ -133,8 +148,8 @@
         }, Promise.resolve()).then(function () { return results; });
     }
 
-    function swapAfterDrop(swaps) {
-        takePlaceholders(swaps).then(function () { return placeItems(swaps); }).then(function (results) {
+    function swapAfterDrop(swaps, onlyMogrts) {
+        takePlaceholders(swaps, onlyMogrts).then(function () { return placeItems(swaps); }).then(function (results) {
             var errors = results.filter(function (r) { return r.error; }),
                 warnings = results.filter(function (r) { return r.warning; }),
                 oks = results.filter(function (r) { return r.ok; });
@@ -145,8 +160,10 @@
         });
     }
 
-    function afterDrag(swaps) {
-        if (inCEP && swaps && swaps.length) swapAfterDrop(swaps);
+    // files: todos os arquivos do arrasto (para saber se eram só MOGRTs com imagem provisória).
+    function afterDrag(swaps, files) {
+        if (!inCEP || !swaps || !swaps.length) return;
+        swapAfterDrop(swaps, !!files && files.length === swaps.length);
     }
 
     function flashTile(f) {

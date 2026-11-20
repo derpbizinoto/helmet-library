@@ -7,7 +7,7 @@
 
     // Tem que ser igual às duas versões do CSXS/manifest.xml e ao HL_HOST_VERSION do
     // host/index.jsx (o empacotar.ps1 confere).
-    var CLIENT_VERSION = "1.3.6";
+    var CLIENT_VERSION = "1.3.7";
 
     var MB = 1024 * 1024;
 

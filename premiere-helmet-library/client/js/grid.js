@@ -499,7 +499,7 @@
         var d = state.dragging;
         state.dragging = null;
         if (d && d.el) d.el.classList.remove("dragging");
-        if (d) app.afterDrag(d.swaps);   // troca as imagens provisórias pelos MOGRTs
+        if (d) app.afterDrag(d.swaps, d.files);   // troca as imagens provisórias pelos MOGRTs
         var outside = e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight;
         var effect = e.dataTransfer ? e.dataTransfer.dropEffect : "";
         // O dropEffect que volta de outro programa não é confiável (vinha "none" mesmo quando o Premiere

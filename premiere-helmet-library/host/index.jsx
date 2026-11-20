@@ -3,12 +3,12 @@
 // opcionalmente espelhando as subpastas) e coloca o clipe na timeline, na posição da agulha,
 // na primeira trilha livre. MOGRTs entram com sequence.importMGT().
 //
-// O painel só chama as funções públicas (hl_add, hl_takePlaceholder, hl_placeMogrt, hl_getHostVersion) pela ponte única
+// O painel só chama as funções públicas (hl_add, hl_takeDrop, hl_placeMogrt, hl_getHostVersion) pela ponte única
 // (client/js/bridge.js), com cada argumento como literal JSON. Toda função pública passa
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.6";
+var HL_HOST_VERSION = "1.3.7";
 
 // ---------- respostas ----------
 
@@ -110,44 +110,187 @@ function hl_add(path, kind, toTimeline, binName, subPath) {
 
 // ---------- arrastar MOGRT com imagem provisória ----------
 // O painel arrasta uma imagem provisória (placeholder) no lugar do MOGRT: o Premiere não aceita
-// .mogrt arrastado de um painel. Depois de soltar, o painel chama hl_takePlaceholder para cada
-// imagem e, em seguida, hl_placeMogrt para colocar o MOGRT no lugar dela.
+// .mogrt arrastado de um painel. Depois de soltar, o painel chama hl_takeDrop com as imagens do
+// arrasto e, em seguida, hl_placeMogrt para colocar cada MOGRT no lugar da imagem dele.
+// 1.3.7: mesma sequência de passos do Animation Composer (jsx/mh-browser-ppro.jsx, dropMogrt):
+//   1. imagem aberta no Source Monitor → fecha e avisa;
+//   2. timeline sem sequência (o Premiere criou uma sequência nova com a imagem) → desfaz e avisa;
+//   3. imagem na timeline → anota onde ela ficou e DESFAZ a soltura (Ctrl+Z do próprio Premiere),
+//      o que também traz de volta o que a imagem cobriu e tira a imagem do projeto; as trilhas que
+//      a soltura criou são criadas de novo;
+//   4. imagem só no projeto → solta no painel Project: tira do projeto e avisa.
 // (Vídeo arrastado vai direto, sem nada disso: ver client/js/grid.js.)
 
-// Acha os clipes da imagem na sequência ativa, tira todos e tira a imagem do projeto.
-// Devolve onde estava o primeiro: { found, track, ticks, seconds, end }.
-// Se não está em nenhuma sequência: { found: 0, inProject } — na última conferência (lastTry) a
-// imagem que só está no projeto foi solta no painel Project; ela é retirada e inProject = true.
-// Antes disso, imagem só no projeto pode ser o Premiere ainda colocando na timeline: não mexe.
-function hl_takePlaceholder(placeholder, lastTry) {
+// placeholders: caminhos das imagens provisórias, um por linha.
+// lastTry: última conferência — só nela a imagem que está só no projeto conta como solta no Project
+//   (antes disso pode ser o Premiere ainda colocando na timeline).
+// useUndo: true = pode desfazer a soltura (arrasto só de MOGRTs e ainda não desfeito neste arrasto).
+// Devolve { spots: [ { found, track, ticks, seconds, end } | { found: 0, inProject } ] (na ordem
+// das imagens), undone, sourceMonitor, newSequence }.
+function hl_takeDrop(placeholders, lastTry, useUndo) {
     return hl_run(function () {
-        if (!app.project) return { found: 0 };
-        var wanted = hl_normPath(String(placeholder));
+        var list = String(placeholders || "").split("\n"), wanted = [], i;
+        for (i = 0; i < list.length; i++) if (list[i]) wanted.push(hl_normPath(list[i]));
+        var out = { spots: [], undone: false };
+        for (i = 0; i < wanted.length; i++) out.spots.push({ found: 0 });
+        if (!app.project || !wanted.length) return out;
+
+        // 1. Source Monitor
+        if (hl_closeInSourceMonitor(wanted)) {
+            hl_removePlaceholderItems(hl_placeholderItems(wanted));
+            out.sourceMonitor = true;
+            return out;
+        }
+
+        // 2. timeline vazia: o Premiere criou uma sequência só com a imagem e com o nome dela
         var seq = app.project.activeSequence;
-        var spots = seq ? hl_placeholderClips(seq, wanted) : [];
-        if (!spots.length) {
-            if (lastTry !== true) return { found: 0 };
-            var copies = [];
-            hl_collectMedia(app.project.rootItem, wanted, [], copies);
-            if (!copies.length) return { found: 0 };              // arrasto cancelado
-            hl_removePlaceholderItems(copies);
-            return { found: 0, inProject: true };
+        if (seq && hl_isPlaceholderSequence(seq, wanted)) {
+            for (i = 0; i < 3 && hl_placeholderItems(wanted).length; i++) hl_qeUndo();
+            hl_preventRedo();
+            hl_removePlaceholderItems(hl_placeholderItems(wanted));
+            out.newSequence = true;
+            return out;
         }
-        for (var i = 0; i < spots.length; i++) {
-            try { spots[i].clip.remove(false, false); } catch (e) { /* conferido abaixo */ }
-            if (hl_spotStillThere(seq, wanted, spots[i])) throw hl_userError("O Premiere não deixou trocar a imagem provisória. Use o botão Adicionar.");
+
+        // 3. timeline
+        var spots = [], any = false;
+        for (i = 0; i < wanted.length; i++) {
+            spots.push(seq ? hl_placeholderClips(seq, wanted[i]) : []);
+            if (spots[i].length) any = true;
         }
-        var left = [];
-        hl_collectMedia(app.project.rootItem, wanted, [], left);
-        hl_removePlaceholderItems(left);
-        var s = spots[0];
-        return { found: spots.length, track: s.track, ticks: String(s.ticks), seconds: s.seconds, end: s.end };
+        if (!any) {
+            // 4. painel Project (só na última conferência) ou arrasto cancelado
+            if (lastTry !== true) return out;
+            for (i = 0; i < wanted.length; i++) {
+                var copies = hl_placeholderItems([wanted[i]]);
+                if (!copies.length) continue;                   // arrasto cancelado
+                hl_removePlaceholderItems(copies);
+                out.spots[i] = { found: 0, inProject: true };
+            }
+            return out;
+        }
+
+        if (useUndo === true) {
+            var nv = seq.videoTracks.numTracks, na = seq.audioTracks.numTracks;
+            hl_qeUndo();
+            seq = app.project.activeSequence;
+            if (seq) {
+                var addV = Math.max(0, nv - seq.videoTracks.numTracks), addA = Math.max(0, na - seq.audioTracks.numTracks);
+                if (addV || addA) hl_addTracks(addV, addA);
+                seq = app.project.activeSequence;
+            }
+            out.undone = true;
+            if (!seq) throw hl_userError("O Premiere não deixou trocar a imagem provisória. Use o botão Adicionar.");
+        }
+
+        // Sem desfazer (ou se o desfazer não tirou tudo): tira clipe por clipe.
+        for (i = 0; i < wanted.length; i++) {
+            var left = hl_placeholderClips(seq, wanted[i]);
+            for (var k = 0; k < left.length; k++) {
+                try { left[k].clip.remove(false, false); } catch (e) { /* conferido abaixo */ }
+                if (hl_spotStillThere(seq, wanted[i], left[k])) throw hl_userError("O Premiere não deixou trocar a imagem provisória. Use o botão Adicionar.");
+            }
+        }
+        hl_removePlaceholderItems(hl_placeholderItems(wanted));
+
+        for (i = 0; i < wanted.length; i++) {
+            if (!spots[i].length) continue;
+            var s = spots[i][0];
+            out.spots[i] = { found: spots[i].length, track: s.track, ticks: String(s.ticks), seconds: s.seconds, end: s.end };
+        }
+        return out;
     }, "Erro ao trocar a imagem provisória: ");
+}
+
+// Todas as cópias das imagens no projeto: [{ item, chain }].
+function hl_placeholderItems(wanted) {
+    var out = [];
+    for (var i = 0; i < wanted.length; i++) hl_collectMedia(app.project.rootItem, wanted[i], [], out);
+    return out;
+}
+
+// Fecha a imagem se ela foi solta no Source Monitor (o Composer faz igual). true = estava lá.
+function hl_closeInSourceMonitor(wanted) {
+    var closed = false;
+    try {
+        for (var n = 0; n < 10; n++) {
+            var pi = app.sourceMonitor.getProjectItem();
+            if (!pi) break;
+            var mp = hl_normPath(pi.getMediaPath());
+            var ours = false;
+            for (var i = 0; i < wanted.length; i++) if (mp === wanted[i]) ours = true;
+            if (!ours) break;
+            app.sourceMonitor.closeClip();
+            closed = true;
+        }
+    } catch (e) { /* sem Source Monitor nesta versão */ }
+    return closed;
+}
+
+// Sequência criada pelo Premiere ao soltar na timeline vazia: só tem as imagens e uma delas tem
+// o nome da sequência (mesma conferência do Composer).
+function hl_isPlaceholderSequence(seq, wanted) {
+    var onlyOurs = true, named = false, total = 0;
+    var groups = [seq.videoTracks, seq.audioTracks];
+    for (var g = 0; g < groups.length; g++) {
+        for (var t = 0; t < groups[g].numTracks; t++) {
+            var clips = groups[g][t].clips;
+            for (var c = 0; c < clips.numItems; c++) {
+                total++;
+                var mp = "";
+                try { mp = hl_normPath(clips[c].projectItem.getMediaPath()); } catch (e) { mp = ""; }
+                var ours = false;
+                for (var i = 0; i < wanted.length; i++) if (mp === wanted[i]) ours = true;
+                if (!ours) onlyOurs = false;
+                try { if (clips[c].name === seq.name) named = true; } catch (e2) { /* ignora */ }
+            }
+        }
+    }
+    return total > 0 && onlyOurs && named;
+}
+
+// Desfaz a última ação do projeto (API QE, não documentada; o Composer usa a mesma).
+function hl_qeUndo() {
+    app.enableQE();
+    qe.project.undo();
+}
+
+// Depois de desfazer, impede que Ctrl+Shift+Z traga a soltura de volta: faz uma ação pequena e a
+// desfaz (o Composer renomeia uma bin dele; aqui cria uma bin vazia). Se a bin ficar, é apagada.
+function hl_preventRedo() {
+    try {
+        var root = app.project.rootItem;
+        var name = "Helmet Library - desfazer " + new Date().getTime();
+        if (!root.createBin(name) && !hl_findBin(root, name)) return;
+        hl_qeUndo();
+        var left = hl_findBin(root, name);
+        if (left) hl_deleteIfEmpty(left);
+    } catch (e) { /* ignora */ }
+}
+
+// Seleciona o clipe inserido (e os vinculados a ele), como o Composer. add = soma à seleção atual.
+function hl_selectInserted(seq, ti, add) {
+    try {
+        var sel = [], i;
+        if (add) {
+            var cur = seq.getSelection();
+            for (i = 0; cur && i < cur.length; i++) sel.push(cur[i]);
+        }
+        var linked = null;
+        try { linked = ti.getLinkedItems(); } catch (e1) { linked = null; }
+        if (linked && linked.numItems) {
+            for (i = 0; i < linked.numItems; i++) sel.push(linked[i]);
+        } else {
+            sel.push(ti);
+        }
+        seq.setSelection(sel);
+    } catch (e) { /* seleção é só conveniência */ }
 }
 
 // Coloca o MOGRT na sequência ativa, na trilha de vídeo vIndex, no tempo seconds
 // (ticks, se veio, é a posição exata; "" = calcula pelos segundos).
-function hl_placeMogrt(path, vIndex, seconds, ticks) {
+// addToSelection: true soma o MOGRT à seleção (vários MOGRTs no mesmo arrasto).
+function hl_placeMogrt(path, vIndex, seconds, ticks, addToSelection) {
     return hl_run(function () {
         if (!app.project) throw hl_userError("Nenhum projeto aberto.");
         var seq = app.project.activeSequence;
@@ -162,6 +305,7 @@ function hl_placeMogrt(path, vIndex, seconds, ticks) {
         var ti = null;
         try { ti = seq.importMGT(f.fsName, t, idx, aIdx); } catch (e1) { ti = null; }
         if (!ti) throw hl_userError("O Premiere não conseguiu inserir o MOGRT (versão ou template incompatível?).");
+        hl_selectInserted(seq, ti, addToSelection === true);
         var nm = "", end = start + 5;
         try { nm = ti.name; } catch (e2) { nm = f.displayName; }
         try { end = ti.end.seconds; } catch (e3) { /* mantém */ }
@@ -397,14 +541,16 @@ function hl_freeIndexOrNewTrack(seq, start, end, needV, needA) {
     return { index: idx, seq: seq };
 }
 
-// Cria uma trilha de vídeo e/ou áudio no fim da sequência (API QE, não documentada).
+// Cria trilhas de vídeo e/ou áudio no fim da sequência (API QE, não documentada).
+// addV / addA: true = 1 trilha, ou o número de trilhas.
 function hl_addTracks(addV, addA) {
+    var nv = addV === true ? 1 : (Number(addV) || 0), na = addA === true ? 1 : (Number(addA) || 0);
     try {
         app.enableQE();
         var qs = qe.project.getActiveSequence();
         var seq = app.project.activeSequence;
         // addTracks(nVideo, depoisDoVideo, nAudio, tipoAudio(1 = estéreo), depoisDoAudio, nSubmix, tipoSubmix, depoisDoSubmix)
-        qs.addTracks(addV ? 1 : 0, seq.videoTracks.numTracks, addA ? 1 : 0, 1, seq.audioTracks.numTracks, 0, 1, 0);
+        qs.addTracks(nv, seq.videoTracks.numTracks, na, 1, seq.audioTracks.numTracks, 0, 1, 0);
         return true;
     } catch (e) {
         return false;

@@ -55,7 +55,7 @@ class Track {
         const start = typeof pos === "object" ? pos.seconds : Number(pos);
         const clips = this.clips;
         const clip = {
-            item: item, projectItem: item, start: time(start), end: time(start + item.duration),
+            name: item.name, item: item, projectItem: item, start: time(start), end: time(start + item.duration),
             remove() { const i = clips.indexOf(clip); if (i >= 0) clips.splice(i, 1); return 0; }   // 0 = ok, como no Premiere
         };
         clips.push(clip);
@@ -68,13 +68,20 @@ class Sequence {
         this.audioTracks = collection(Array.from({ length: na }, () => new Track()));
         this.playhead = 0;
         this.mgts = [];
+        this.name = "Sequência 01";
+        this.selection = [];
     }
+    getSelection() { return this.selection.slice(); }
+    setSelection(list) { this.selection = list.slice(); }
     getPlayerPosition() { return time(this.playhead); }
     importMGT(file, ticks, v, a) {
         this.mgts.push({ file: file, ticks: ticks, v: v, a: a });
         const item = new ClipItem(file, 5);
-        this.videoTracks[v].overwriteClip(item, Number(ticks) / TPS);
-        return { name: path.basename(file, ".mogrt") };
+        const track = this.videoTracks[v];
+        track.overwriteClip(item, Number(ticks) / TPS);
+        const clip = track.clips[track.clips.length - 1];
+        clip.name = path.basename(file, ".mogrt");
+        return clip;
     }
 }
 
@@ -108,10 +115,25 @@ function makeContext(opts) {
         this.exists = fs.existsSync(this.fsName);
         this.displayName = path.basename(this.fsName);
     }
+    // Desfazer: cada teste empilha em project.undoStack o que o "Ctrl+Z" deve fazer.
+    project.undoStack = [];
+    project.undoCount = 0;
+    const origCreateBin = project.rootItem.createBin.bind(project.rootItem);
+    project.rootItem.createBin = function (name) {
+        const b = origCreateBin(name);
+        project.undoStack.push(() => b.deleteBin());
+        return b;
+    };
+    const sourceMonitor = {
+        item: null,
+        getProjectItem() { return this.item; },
+        closeClip() { this.item = null; }
+    };
     const ctx = {
-        app: { project: project, enableQE() {} },
+        app: { project: project, sourceMonitor: sourceMonitor, enableQE() {} },
         qe: {
             project: {
+                undo() { project.undoCount++; const f = project.undoStack.pop(); if (f) f(); },
                 getActiveSequence() {
                     return {
                         addTracks(nv, _a, na) {
