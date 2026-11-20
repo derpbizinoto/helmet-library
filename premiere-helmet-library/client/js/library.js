@@ -95,26 +95,131 @@
     }
 
     function configPath() { return path.join(appDataDir(), "config.json"); }
+    function backupPath() { return configPath() + ".bak"; }
 
-    function loadConfig() {
+    function clone(v) { return JSON.parse(JSON.stringify(v)); }
+    function isObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
+
+    // Lê um JSON do disco. { ok, data } | { ok: false, missing } | { ok: false, corrupt }
+    function readJsonFile(file) {
+        var text;
+        try { text = fs.readFileSync(file, "utf8"); }
+        catch (e) { return e.code === "ENOENT" ? { ok: false, missing: true } : { ok: false, corrupt: true, error: e }; }
+        try {
+            var data = JSON.parse(text.replace(/^﻿/, ""));
+            return isObject(data) ? { ok: true, data: data } : { ok: false, corrupt: true };
+        } catch (e2) { return { ok: false, corrupt: true, error: e2 }; }
+    }
+
+    var CHOICES = {
+        cacheMode: ["library", "system"],
+        dblClick: ["timeline", "project"],
+        filter: ["all", "video", "audio", "image", "mogrt", "other"]
+    };
+    var BOOLEANS = ["useBin", "mirrorFolders", "includeSub", "showUnknown", "autoplay"];
+    var NUMBERS = { thumbSize: [110, 340], sidebarWidth: [150, 4000], volume: [0, 1] };
+
+    function strings(arr) { return Array.isArray(arr) ? arr.filter(function (x) { return typeof x === "string" && x; }) : null; }
+
+    // Confere o tipo de cada campo. O que vier errado volta para o padrão (sem travar o painel).
+    // Devolve null se o essencial (bibliotecas ou favoritos) estiver estragado: aí o arquivo
+    // é tratado como corrompido, para não gravar por cima e perder esses dados.
+    function sanitizeConfig(raw) {
+        if (!isObject(raw)) return null;
+        if ("libraries" in raw && !Array.isArray(raw.libraries)) return null;
+        if ("favorites" in raw && !Array.isArray(raw.favorites)) return null;
         var cfg = {};
-        try { cfg = JSON.parse(fs.readFileSync(configPath(), "utf8")) || {}; } catch (e) { cfg = {}; }
-        for (var k in DEFAULTS) if (!(k in cfg)) cfg[k] = JSON.parse(JSON.stringify(DEFAULTS[k]));
+        for (var key in raw) cfg[key] = raw[key];   // campos desconhecidos são mantidos
+        for (var k in DEFAULTS) if (!(k in cfg)) cfg[k] = clone(DEFAULTS[k]);
+
+        cfg.libraries = cfg.libraries.filter(function (lib) {
+            return isObject(lib) && typeof lib.path === "string" && lib.path;
+        }).map(function (lib) {
+            return {
+                id: typeof lib.id === "string" && lib.id ? lib.id : newId(),
+                name: typeof lib.name === "string" && lib.name ? lib.name : (path.basename(lib.path) || lib.path),
+                path: lib.path
+            };
+        });
+        cfg.favorites = strings(cfg.favorites);
+        cfg.expanded = strings(cfg.expanded) || [];
+        var v = cfg.lastView;
+        if (!(isObject(v) && (v.type === "favorites" || (v.type === "folder" && typeof v.path === "string" && v.path)))) cfg.lastView = null;
+        Object.keys(CHOICES).forEach(function (k) { if (CHOICES[k].indexOf(cfg[k]) < 0) cfg[k] = DEFAULTS[k]; });
+        BOOLEANS.forEach(function (k) { if (typeof cfg[k] !== "boolean") cfg[k] = DEFAULTS[k]; });
+        Object.keys(NUMBERS).forEach(function (k) {
+            var n = cfg[k], r = NUMBERS[k];
+            cfg[k] = typeof n === "number" && isFinite(n) ? Math.min(r[1], Math.max(r[0], n)) : DEFAULTS[k];
+        });
         return cfg;
+    }
+
+    function stamp(d) {
+        var two = function (n) { return ("0" + n).slice(-2); };
+        return d.getFullYear() + two(d.getMonth() + 1) + two(d.getDate()) + "-" + two(d.getHours()) + two(d.getMinutes()) + two(d.getSeconds());
+    }
+
+    function fmtDate(d) {
+        var two = function (n) { return ("0" + n).slice(-2); };
+        return two(d.getDate()) + "/" + two(d.getMonth() + 1) + "/" + d.getFullYear() + " " + two(d.getHours()) + ":" + two(d.getMinutes());
+    }
+
+    var configNotice = null;   // aviso para o usuário depois de uma recuperação
+
+    // Lê o config.json. Se estiver corrompido: guarda o arquivo estragado com outro nome
+    // (nunca grava por cima), tenta o backup (.bak) e deixa um aviso em lastConfigNotice().
+    function loadConfig() {
+        configNotice = null;
+        var main = readJsonFile(configPath());
+        var cfg = main.ok ? sanitizeConfig(main.data) : null;
+        if (cfg) return cfg;
+        if (main.missing) return sanitizeConfig({});
+
+        var kept = path.join(appDataDir(), "config.corrompido-" + stamp(new Date()) + ".json");
+        try { fs.renameSync(configPath(), kept); } catch (e) { kept = configPath(); }
+
+        var bak = readJsonFile(backupPath());
+        var fromBak = bak.ok ? sanitizeConfig(bak.data) : null;
+        if (fromBak) {
+            var when = "";
+            try { when = " de " + fmtDate(fs.statSync(backupPath()).mtime); } catch (e) { /* sem data */ }
+            configNotice = "O arquivo de configurações estava danificado e foi recuperado do backup" + when +
+                ". O arquivo danificado ficou guardado em:\n" + kept;
+            return fromBak;
+        }
+        configNotice = "O arquivo de configurações estava danificado e não havia backup, então as bibliotecas " +
+            "e os favoritos começaram vazios. O arquivo danificado ficou guardado em:\n" + kept;
+        return sanitizeConfig({});
+    }
+
+    function lastConfigNotice() { return configNotice; }
+
+    var saveErrorHandler = function () { };
+    function onSaveError(fn) { saveErrorHandler = fn || function () { }; }
+
+    // Grava de forma atômica (arquivo temporário + renomear) e guarda a versão anterior em .bak.
+    function writeConfigNow(cfg) {
+        try {
+            mkdirp(appDataDir());
+            var tmp = configPath() + ".tmp";
+            fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), "utf8");
+            if (readJsonFile(configPath()).ok) {
+                try { fs.copyFileSync(configPath(), backupPath()); } catch (e) { /* segue sem backup novo */ }
+            }
+            fs.renameSync(tmp, configPath());
+            return true;
+        } catch (e) {
+            console.error("Helmet Library: falha ao salvar config", e);
+            saveErrorHandler(e);
+            return false;
+        }
     }
 
     var saveTimer = null;
     function saveConfig(cfg, now) {
         clearTimeout(saveTimer);
-        var write = function () {
-            try {
-                mkdirp(appDataDir());
-                var tmp = configPath() + ".tmp";
-                fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), "utf8");
-                fs.renameSync(tmp, configPath());
-            } catch (e) { console.error("Helmet Library: falha ao salvar config", e); }
-        };
-        if (now) write(); else saveTimer = setTimeout(write, 300);
+        if (now) writeConfigNow(cfg);
+        else saveTimer = setTimeout(function () { writeConfigNow(cfg); }, 300);
     }
 
     function newId() { return "lib" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -430,6 +535,9 @@
         typeOf: typeOf,
         loadConfig: loadConfig,
         saveConfig: saveConfig,
+        lastConfigNotice: lastConfigNotice,
+        onSaveError: onSaveError,
+        sanitizeConfig: sanitizeConfig,
         newId: newId,
         listDir: listDir,
         listDirs: listDirs,

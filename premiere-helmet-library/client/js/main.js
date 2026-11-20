@@ -931,9 +931,11 @@
     // ======================================================================
 
     var askResolve = null;
-    function ask(title, text, value, okLabel) {
+    // opts.noCancel: só o botão OK (avisos)
+    function ask(title, text, value, okLabel, opts) {
         els.askTitle.textContent = title;
         els.askText.textContent = text || "";
+        els.askCancel.hidden = !!(opts && opts.noCancel);
         els.askInput.hidden = value == null;
         els.askInput.value = value || "";
         els.askOk.textContent = okLabel || "OK";
@@ -1115,6 +1117,17 @@
     else { renderCrumbs(); loadItems(true); }
 
     if (L.demo) setStatus("Modo de demonstração (fora do Premiere): biblioteca de exemplo, sem acesso ao disco.", "warning", true);
+
+    // config.json danificado: avisa o que foi recuperado e onde ficou o arquivo estragado
+    var notice = L.lastConfigNotice && L.lastConfigNotice();
+    if (notice) ask("Configurações recuperadas", notice, null, "OK", { noCancel: true });
+
+    var lastSaveError = 0;
+    L.onSaveError(function () {
+        if (Date.now() - lastSaveError < 60000) return;
+        lastSaveError = Date.now();
+        setStatus("Não foi possível salvar suas configurações (disco cheio ou sem permissão em " + L.appDataDir() + ").", "error");
+    });
 
     window.addEventListener("beforeunload", function () { L.saveConfig(cfg, true); });
 })();
