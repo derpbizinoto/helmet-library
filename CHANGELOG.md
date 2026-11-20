@@ -1,5 +1,14 @@
 # Changelog — Helmet Library
 
+## 1.3.7 — MOGRT arrastado com os passos do Animation Composer
+
+- **MOGRT arrastado para a timeline:** depois de soltar, a extensão desfaz a soltura da imagem cinza (o mesmo Ctrl+Z do Premiere que o Composer usa) e coloca o MOGRT no lugar dela. Assim, o que a imagem tinha coberto volta inteiro (antes podia ficar um buraco), e as trilhas criadas ao soltar acima da última continuam lá.
+- A troca começa **logo ao soltar** (antes esperava 0,7 s).
+- O MOGRT colocado fica **selecionado**, como no Composer (vários do mesmo arrasto ficam todos selecionados).
+- **Solto no Source Monitor:** a imagem é fechada e sai do projeto; a barra de baixo explica.
+- **Solto numa timeline sem sequência** (o Premiere criava uma sequência nova só com a imagem): a sequência nova é desfeita e a barra de baixo pede para arrastar para uma sequência aberta.
+- Arrasto de MOGRT junto com vídeo, áudio ou imagem continua como na 1.3.6 (sem desfazer, para não tirar os outros arquivos). MOGRT solto no Project, vídeo, áudio e imagem não mudam.
+
 ## 1.3.6 — vídeo arrastado igual ao Animation Composer
 
 - **Vídeo arrastado** agora segue exatamente o método do Animation Composer: o arrasto leva só o caminho do arquivo verdadeiro, no formato próprio do CEP. Sem importar antes, sem imagem provisória, sem troca depois de soltar e sem os formatos extras (lista de URLs e texto). O próprio Premiere importa e coloca o vídeo ao soltar.

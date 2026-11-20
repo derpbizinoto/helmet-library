@@ -1,13 +1,27 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.6
+# Roteiro de testes no Premiere — Helmet Library 1.3.7
 
-> **Reteste da 1.3.6.** Instale a 1.3.6 (`instalar.bat`). O vídeo agora é arrastado exatamente como no Animation Composer (só o caminho do arquivo; o Premiere importa ao soltar). Confira só isto:
+> **Reteste da 1.3.7.** Instale a 1.3.7 (`instalar.bat`). O arrastar de MOGRT agora segue os passos do Animation Composer. Confira só isto:
 >
-> - [ ] **C1** Arraste um **vídeo** que ainda não está no projeto para a timeline: entra **com imagem e som** já no primeiro arrasto, e **o painel Project não vem para a frente** (nem durante, nem depois). Se entrar só o áudio, anote.
-> - [ ] **C2** Arraste o mesmo vídeo de novo: entra de novo, normal.
-> - [ ] **C3** Arraste **três vídeos** selecionados juntos para a timeline: entram os três, com imagem e som.
-> - [ ] **C4** Arraste um vídeo para o **painel Project**: entra no projeto, uma cópia só.
-> - [ ] **C5** Arraste juntos um vídeo e um áudio: os dois entram.
-> - [ ] **C6** MOGRT, áudio e imagem continuam como antes (M1 e V8).
+> - [ ] **D1** Arraste um **MOGRT** para a timeline, num lugar vazio: vira o MOGRT no mesmo lugar e na mesma trilha, mais rápido que antes, e o **MOGRT fica selecionado** (aparece no Essential Graphics).
+> - [ ] **D2** Arraste um MOGRT **por cima de um vídeo** que já está na timeline (mesma trilha): o MOGRT entra por cima, e a parte do vídeo que a imagem cinza cobriu e o MOGRT não cobre **continua lá** (sem buraco).
+> - [ ] **D3** Arraste um MOGRT para o **espaço vazio acima da última trilha de vídeo**: o Premiere cria uma trilha nova e o MOGRT fica nela.
+> - [ ] **D4** Arraste **dois MOGRTs** juntos: entram em fila, e os dois ficam selecionados.
+> - [ ] **D5** Depois do D1, aperte **Ctrl+Z** uma vez: o MOGRT sai. Anote o que mais acontece em mais um ou dois Ctrl+Z (não deve voltar a imagem cinza).
+> - [ ] **D6** Feche todas as sequências e arraste um MOGRT para a **timeline vazia**: não fica nenhuma sequência nova nem imagem cinza no projeto, e a barra de baixo diz "Arraste para uma sequência já aberta na timeline". Aperte Ctrl+Shift+Z: a sequência cinza não deve voltar.
+> - [ ] **D7** Arraste um MOGRT para o **Source Monitor**: ele fecha, não sobra imagem cinza no projeto, e a barra de baixo explica.
+> - [ ] **D8** Arraste um MOGRT para o **painel Project**: como antes, uns 5 segundos depois a imagem some e a barra de baixo avisa.
+> - [ ] **D9** Arraste juntos um **vídeo e um MOGRT** para a timeline: os dois entram (como na 1.3.6).
+> - [ ] **D10** Comece a arrastar um MOGRT e desista (Esc): nada acontece, e nada que você fez antes é desfeito.
+> - Diferença esperada: enquanto arrasta, o retângulo cinza tem a duração padrão de imagem do Premiere, não a do MOGRT (o Composer usa um plugin próprio para isso). Onde o MOGRT entra não muda.
+
+> **Reteste da 1.3.6.** Resultado: C1 a C6 passaram. Instale a 1.3.6 (`instalar.bat`). O vídeo agora é arrastado exatamente como no Animation Composer (só o caminho do arquivo; o Premiere importa ao soltar). Confira só isto:
+>
+> - [x] **C1** Arraste um **vídeo** que ainda não está no projeto para a timeline: entra **com imagem e som** já no primeiro arrasto, e **o painel Project não vem para a frente** (nem durante, nem depois). Se entrar só o áudio, anote.
+> - [x] **C2** Arraste o mesmo vídeo de novo: entra de novo, normal.
+> - [x] **C3** Arraste **três vídeos** selecionados juntos para a timeline: entram os três, com imagem e som.
+> - [x] **C4** Arraste um vídeo para o **painel Project**: entra no projeto, uma cópia só.
+> - [x] **C5** Arraste juntos um vídeo e um áudio: os dois entram.
+> - [x] **C6** MOGRT, áudio e imagem continuam como antes (M1 e V8).
 > - Diferença esperada: o vídeo arrastado entra onde o Premiere coloca (como no Composer), não na bin Helmet Library. Com **Adicionar** continua indo para a bin.
 
 > **Reteste da 1.3.5.** Resultado: V1 a V5, V7 e V8 passaram, mas o painel Project ainda vinha para a frente depois de soltar um vídeo. V6: ao soltar MOGRT no Project, ele some (não é importado).

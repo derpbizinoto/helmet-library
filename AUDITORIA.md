@@ -416,3 +416,63 @@ Histórico a conferir no reteste: segundo um comentário antigo do código, as v
 mandavam só o formato do CEP e o vídeo falhava ou entrava só com áudio. Não há código dessas versões
 no repositório para comparar; se o C1 falhar do mesmo jeito, a diferença está fora do arrasto (por
 exemplo, nos plugins nativos que o Composer instala).
+
+Reteste da 1.3.6: C1 a C6 passaram ("agora funcionou tudo").
+
+### 1.3.7 — arrastar MOGRT com os passos do Animation Composer
+
+Pedido do usuário: analisar todo o código de arrastar MOGRT do Composer e copiar no Helmet Library.
+
+Como o Composer faz (painel `client/dist/browser.bundle.js` + `jsx/mh-browser-ppro.jsx`, classes
+`Importer` e `MogrtImporter`):
+- **Antes do arrasto:** quando o item fica pronto para arrastar, o painel pede
+  `Editor.getMogrtPreviewFiles`. O ExtendScript lê a duração do MOGRT (e o ponto de corte de transição,
+  se houver), converte para quadros na taxa da sequência, conta as trilhas (1 de vídeo + áudio se o
+  MOGRT tiver som) e cria, pelo plugin nativo (`externalObject.callApi("Preview.createPreviewFile")`),
+  um arquivo `.mhbricks` com essa duração e essas trilhas. O plugin `MHPC_Importer.prm` faz o Premiere
+  aceitar esse formato.
+- **dragstart:** só `com.adobe.cep.dnd.file.N` com o `.mhbricks` (no Mac, troca a ordem dos dois
+  primeiros arquivos); imagem do arrasto com `setDragImage(elemento, -24, 0)`.
+- **dragend:** chama na hora `Editor.addMogrt` com `replacePreview: true` → `dropMogrt`:
+  1. `checkWrongBricksDrop`: arquivo aberto no **Source Monitor** → fecha e avisa; **timeline vazia**
+     (o Premiere criou uma sequência só com o arquivo e com o nome dele) → 3 Ctrl+Z, impede o refazer
+     e avisa; arquivo só no **projeto** → 1 Ctrl+Z, impede o refazer e avisa.
+  2. `replacePreviewBricks`: acha os clipes `.mhbricks` na sequência ativa e anota a primeira trilha
+     de vídeo, a primeira de áudio e o início; conta as trilhas, dá **um Ctrl+Z** (`qe.project.undo()`),
+     que desfaz a soltura inteira (clipe, importação, trilhas criadas e o que foi coberto), e recria as
+     trilhas que a soltura tinha criado.
+  3. Dentro de um "grupo de desfazer" próprio: cria uma cópia temporária do MOGRT no tamanho da
+     sequência, `importMGT` no início e nas trilhas anotados, ajustes dos MOGRTs da Mister Horse
+     (duração máxima, modo de mesclagem, nome "by Mister Horse", escala 100, corte da transição, áudio
+     extra), seleciona a sequência e o clipe inserido e agrupa os clipes.
+  - "Impedir o refazer": renomeia uma bin dele para o mesmo nome e desfaz, para que Ctrl+Shift+Z não
+    traga a soltura de volta.
+
+O que a 1.3.7 copiou (`hl_takeDrop` no host, `takePlaceholders`/`placeItems` no painel):
+- Conferência **logo ao soltar** (0 s) e, se ainda não achou, 0,7 s, 2 s e 5 s depois.
+- **Source Monitor:** fecha a imagem, tira do projeto e avisa.
+- **Timeline vazia:** desfaz até a imagem sair do projeto (no máximo 3 vezes, como o Composer),
+  impede o refazer (aqui cria e desfaz uma bin vazia; se ela ficar, é apagada) e avisa.
+- **Timeline:** anota onde cada imagem ficou, dá **um Ctrl+Z** e recria as trilhas que a soltura criou.
+  Com isso volta o que a imagem cinza tinha coberto (antes ficava um buraco quando ela cobria parte de
+  outro clipe). Se depois do Ctrl+Z ainda houver imagem na timeline, ela sai clipe por clipe como antes.
+- O MOGRT colocado fica **selecionado** (vários do mesmo arrasto ficam todos selecionados).
+
+O que ficou diferente, de propósito:
+- **Duração e trilhas da imagem cinza:** o `.mhbricks` tem a duração exata do MOGRT porque é feito por
+  um plugin nativo. Um PNG fica com a duração padrão de imagem do Premiere. Como a soltura é desfeita,
+  isso só muda o tamanho do retângulo enquanto se arrasta, não onde o MOGRT entra.
+- **Ctrl+Z só se o arrasto for só de MOGRTs:** o Composer arrasta um item por vez. No Helmet dá para
+  arrastar MOGRT junto com vídeo/áudio/imagem; desfazer tiraria esses arquivos também. Nesses arrastos
+  mistos a imagem sai clipe por clipe (como na 1.3.6). E só um Ctrl+Z por arrasto.
+- **Solto no Project:** o Composer desfaz na hora. Aqui a decisão só sai na última conferência (5 s),
+  porque antes disso a imagem só no projeto pode ser o Premiere ainda colocando na timeline; um Ctrl+Z
+  5 s depois poderia desfazer algo que o usuário fez. Então continua a retirada pela bin temporária.
+- **Sem o "grupo de desfazer" do Composer:** ele mexe na pilha de desfazer do Premiere (`undoStackIndex`
+  e bins marcadoras) para que um Ctrl+Z tire tudo de uma vez. É uma peça grande e frágil; aqui colocar o
+  MOGRT e recriar trilhas continuam sendo passos separados no Ctrl+Z.
+- **Ajustes próprios da Mister Horse** (nome "by Mister Horse", meta `mhpc-meta`, escala 100, cópia do
+  MOGRT no tamanho da sequência, agrupar com `doCommand`) dependem dos MOGRTs e do plugin deles: não
+  se aplicam.
+- A trilha de áudio continua sendo a primeira livre no tempo do MOGRT (o Composer usa a do áudio do
+  `.mhbricks`, que o PNG não tem).
