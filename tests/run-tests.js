@@ -367,6 +367,28 @@ test("processos: nenhum exec com texto; attrib/explorer pelo caminho completo", 
 });
 
 // ---------------------------------------------------------------------------
+// Interface
+// ---------------------------------------------------------------------------
+
+test("interface: nenhum innerHTML/outerHTML/insertAdjacentHTML/document.write no painel", () => {
+    const dir = path.join(ROOT, "client", "js");
+    fs.readdirSync(dir).filter((n) => n.endsWith(".js") && n !== "CSInterface.js").forEach((n) => {
+        const code = fs.readFileSync(path.join(dir, n), "utf8").replace(/\/\/.*$/gm, "");   // ignora comentários
+        assert.ok(!/\.(innerHTML|outerHTML)\s*[+]?=|insertAdjacentHTML|document\.write/.test(code), n);
+    });
+});
+
+test("interface: CSP no index.html bloqueia script embutido e não libera internet", () => {
+    const html = read("client/index.html");
+    const m = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/);
+    assert.ok(m, "CSP presente");
+    const script = m[1].split(";").map((x) => x.trim()).find((x) => x.startsWith("script-src"));
+    assert.ok(!/unsafe-inline|unsafe-eval|https?:|\*/.test(script), script);
+    assert.ok(!/https?:/.test(m[1]), "nada da internet");
+    assert.ok(!/<script>|\son[a-z]+=/i.test(html.replace(/<!--[\s\S]*?-->/g, "")), "nenhum script embutido no HTML");
+});
+
+// ---------------------------------------------------------------------------
 // Execução
 // ---------------------------------------------------------------------------
 

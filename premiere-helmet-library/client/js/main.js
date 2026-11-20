@@ -55,12 +55,43 @@
     var KIND_ICON = { video: "i-film", audio: "i-music", image: "i-image", mogrt: "i-sparkles", other: "i-file", unknown: "i-file" };
     var KIND_LABEL = { video: "vídeo", audio: "áudio", image: "imagem", mogrt: "MOGRT", other: "arquivo", unknown: "arquivo" };
 
-    function svg(id, cls) {
-        return '<svg class="icon' + (cls ? " " + cls : "") + '"><use href="#' + id + '"/></svg>';
+    // ---------- montagem da tela ----------
+    // Nada de innerHTML: com o Node ligado, um nome de arquivo interpretado como HTML
+    // viraria código rodando no computador. Todo texto entra como texto (textContent).
+
+    var SVG_NS = "http://www.w3.org/2000/svg";
+
+    // ícone da lista do index.html (<svg class="icon"><use href="#id"/></svg>)
+    function icon(id, cls) {
+        var s = document.createElementNS(SVG_NS, "svg");
+        s.setAttribute("class", "icon" + (cls ? " " + cls : ""));
+        var u = document.createElementNS(SVG_NS, "use");
+        u.setAttribute("href", "#" + id);
+        s.appendChild(u);
+        return s;
     }
 
-    function esc(s) {
-        return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
+    // h("span", { className: "label", title: "…", dataset: {…} }, ["texto", elemento, …])
+    function h(tag, props, children) {
+        var el = document.createElement(tag);
+        if (props) {
+            for (var k in props) {
+                if (k === "dataset") { for (var d in props.dataset) el.dataset[d] = props.dataset[d]; }
+                else el[k] = props[k];
+            }
+        }
+        (children || []).forEach(function (c) {
+            if (c != null && c !== false) el.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+        });
+        return el;
+    }
+
+    // troca todo o conteúdo de um elemento
+    function fill(el, children) {
+        el.textContent = "";
+        (children || []).forEach(function (c) {
+            if (c != null && c !== false) el.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+        });
     }
 
     function norm(s) {
@@ -140,11 +171,12 @@
 
     function renderTree() {
         var scroll = els.tree.scrollTop;
-        els.tree.innerHTML = "";
+        els.tree.textContent = "";
 
-        var fav = document.createElement("div");
-        fav.className = "tree-row fav";
-        fav.innerHTML = '<span class="twisty leaf"></span>' + svg("i-star") + '<span class="label">Favoritos</span><span class="count" id="favCount"></span>';
+        var fav = h("div", { className: "tree-row fav" }, [
+            h("span", { className: "twisty leaf" }), icon("i-star"),
+            h("span", { className: "label" }, ["Favoritos"]), h("span", { className: "count", id: "favCount" })
+        ]);
         fav.style.paddingLeft = "0px";
         fav.addEventListener("click", function () { openView({ type: "favorites" }); });
         fav.dataset.fav = "1";
@@ -156,10 +188,10 @@
         els.tree.appendChild(sec);
 
         if (!cfg.libraries.length) {
-            var em = document.createElement("div");
-            em.className = "tree-empty";
-            em.innerHTML = "Nenhuma biblioteca ainda.<br>Clique em <b>Adicionar pasta</b> e escolha uma pasta do computador com seus vídeos, sons, imagens e MOGRTs.";
-            els.tree.appendChild(em);
+            els.tree.appendChild(h("div", { className: "tree-empty" }, [
+                "Nenhuma biblioteca ainda.", h("br"), "Clique em ", h("b", null, ["Adicionar pasta"]),
+                " e escolha uma pasta do computador com seus vídeos, sons, imagens e MOGRTs."
+            ]));
         }
 
         cfg.libraries.forEach(function (lib) {
@@ -184,10 +216,12 @@
         row.style.paddingLeft = (depth * 14) + "px";
         var missing = lib && !L.exists(dir);
         if (missing) row.classList.add("missing");
-        row.innerHTML = '<span class="twisty">' + svg("i-chevron") + '</span>' +
-            svg(lib ? "i-library" : "i-folder") +
-            '<span class="label" title="' + esc(missing ? "Pasta não encontrada: " + dir : dir) + '">' + esc(name) + '</span>' +
-            (lib ? '<button class="icon-btn sm row-menu" title="Opções">' + svg("i-dots") + '</button>' : "");
+        fill(row, [
+            h("span", { className: "twisty" }, [icon("i-chevron")]),
+            icon(lib ? "i-library" : "i-folder"),
+            h("span", { className: "label", title: missing ? "Pasta não encontrada: " + dir : dir }, [name]),
+            lib && h("button", { className: "icon-btn sm row-menu", title: "Opções" }, [icon("i-dots")])
+        ]);
         var kids = document.createElement("div");
         kids.className = "tree-children";
         wrap.appendChild(row);
@@ -200,11 +234,11 @@
         function expand(on) {
             setExpanded(dir, on);
             row.classList.toggle("open", on);
-            kids.innerHTML = "";
+            kids.textContent = "";
             if (!on) return;
             loadDirs(dir).then(function (dirs) {
                 if (!isExpanded(dir)) return;
-                kids.innerHTML = "";
+                kids.textContent = "";
                 if (!dirs.length) { twisty.classList.add("leaf"); row.classList.remove("open"); return; }
                 dirs.forEach(function (d) { kids.appendChild(buildNode(d.path, d.name, depth + 1, null)); });
                 markSelectedRow();
@@ -275,26 +309,27 @@
 
     function renderCrumbs() {
         var v = state.view;
-        var html = "";
-        if (!v) { els.crumbPath.innerHTML = ""; return; }
+        var nodes = [];
+        var crumb = function (label, p) { return h("button", { className: "crumb", dataset: p ? { path: p } : {} }, [label]); };
+        if (!v) { fill(els.crumbPath, []); return; }
         if (v.type === "favorites") {
-            html = '<button class="crumb">Favoritos</button>';
+            nodes.push(crumb("Favoritos"));
         } else {
             var lib = L.libraryOf(cfg, v.path);
             if (lib) {
                 var rel = L.path.relative(lib.path, v.path);
                 var parts = rel ? rel.split(/[\\/]/) : [];
                 var cur = lib.path;
-                html = '<button class="crumb" data-path="' + esc(cur) + '">' + esc(lib.name) + '</button>';
+                nodes.push(crumb(lib.name, cur));
                 parts.forEach(function (p) {
                     cur = L.path.join(cur, p);
-                    html += svg("i-chevron", "sep") + '<button class="crumb" data-path="' + esc(cur) + '">' + esc(p) + '</button>';
+                    nodes.push(icon("i-chevron", "sep"), crumb(p, cur));
                 });
             } else {
-                html = '<button class="crumb">' + esc(v.path) + '</button>';
+                nodes.push(crumb(v.path));
             }
         }
-        els.crumbPath.innerHTML = html;
+        fill(els.crumbPath, nodes);
     }
 
     function searchText() { return els.search.value.trim(); }
@@ -354,7 +389,7 @@
             if (token !== state.token) return;
             state.items = [];
             renderGrid(true);
-            showEmpty("i-folder", "Não deu para abrir esta pasta.<br><small>" + esc(err && err.message || err) + "</small>");
+            showEmpty("i-folder", ["Não deu para abrir esta pasta.", h("br"), h("small", null, [String(err && err.message || err)])]);
         }).then(function () {
             if (token === state.token) els.gridWrap.classList.remove("loading");
         });
@@ -364,7 +399,7 @@
     function renderGrid(scrollTop) {
         if (observer) observer.disconnect();
         observer = new IntersectionObserver(onVisible, { root: els.gridWrap, rootMargin: "300px 0px" });
-        els.grid.innerHTML = "";
+        els.grid.textContent = "";
         var frag = document.createDocumentFragment();
         state.items.forEach(function (it, i) { frag.appendChild(it.isDir ? folderTile(it, i) : fileTile(it, i)); });
         els.grid.appendChild(frag);
@@ -372,44 +407,48 @@
         els.empty.hidden = true;
 
         if (!state.items.length) {
-            if (!cfg.libraries.length) showEmpty("i-folder-plus", "Adicione uma pasta do computador para criar sua biblioteca.<br><button class=\"btn btn-primary btn-sm\" id=\"emptyAdd\" style=\"margin-top:12px\">" + svg("i-folder-plus") + "Adicionar pasta</button>");
-            else if (!state.view) showEmpty("i-library", "Escolha uma pasta na barra lateral.");
-            else if (state.view.type === "favorites") showEmpty("i-star", "Nenhum favorito ainda.<br>Passe o mouse num arquivo e clique na estrela.");
-            else if (searchText()) showEmpty("i-search", "Nada encontrado para “" + esc(searchText()) + "” nesta pasta.");
-            else showEmpty("i-folder-open", "Esta pasta está vazia" + (cfg.filter !== "all" ? " (com este filtro)" : "") + ".");
-            var b = $("emptyAdd");
-            if (b) b.addEventListener("click", addLibrary);
+            if (!cfg.libraries.length) {
+                var b = h("button", { className: "btn btn-primary btn-sm", id: "emptyAdd" }, [icon("i-folder-plus"), "Adicionar pasta"]);
+                b.style.marginTop = "12px";
+                b.addEventListener("click", addLibrary);
+                showEmpty("i-folder-plus", ["Adicione uma pasta do computador para criar sua biblioteca.", h("br"), b]);
+            }
+            else if (!state.view) showEmpty("i-library", ["Escolha uma pasta na barra lateral."]);
+            else if (state.view.type === "favorites") showEmpty("i-star", ["Nenhum favorito ainda.", h("br"), "Passe o mouse num arquivo e clique na estrela."]);
+            else if (searchText()) showEmpty("i-search", ["Nada encontrado para “" + searchText() + "” nesta pasta."]);
+            else showEmpty("i-folder-open", ["Esta pasta está vazia" + (cfg.filter !== "all" ? " (com este filtro)" : "") + "."]);
         }
         refreshSelectionUi();
     }
 
-    function showEmpty(icon, html) {
-        els.empty.innerHTML = svg(icon) + "<div>" + html + "</div>";
+    // parts: textos e elementos da mensagem
+    function showEmpty(iconId, parts) {
+        fill(els.empty, [icon(iconId), h("div", null, parts)]);
         els.empty.hidden = false;
     }
 
     function folderTile(it, i) {
-        var el = document.createElement("div");
-        el.className = "tile folder";
-        el.dataset.i = i;
-        el.innerHTML = '<div class="tile-thumb">' + svg("i-folder", "ph") + '</div>' +
-            '<div class="tile-foot">' + svg("i-folder") + '<span class="tile-name" title="' + esc(it.name) + '">' + esc(it.name) + '</span></div>';
-        return el;
+        return h("div", { className: "tile folder", dataset: { i: i } }, [
+            h("div", { className: "tile-thumb" }, [icon("i-folder", "ph")]),
+            h("div", { className: "tile-foot" }, [icon("i-folder"), h("span", { className: "tile-name", title: it.name }, [it.name])])
+        ]);
     }
 
     function fileTile(f, i) {
-        var el = document.createElement("div");
-        el.className = "tile";
-        el.dataset.i = i;
-        el.draggable = true;
         var warn = f.kind !== "unknown" && !f.canPreview;
-        el.innerHTML =
-            '<div class="tile-thumb kind-' + f.kind + '">' + svg(KIND_ICON[f.kind] || "i-file", "ph kind-" + f.kind + "-ph") +
-            '<span class="tile-ext' + (f.kind === "unknown" ? " warn" : "") + '">' + esc(f.ext) + '</span>' +
-            '<span class="tile-badge"></span></div>' +
-            '<div class="tile-foot"><span class="kind kind-' + f.kind + '" title="' + KIND_LABEL[f.kind] + '">' + svg(KIND_ICON[f.kind] || "i-file") + '</span>' +
-            '<span class="tile-name" title="' + esc(f.name + (warn ? "\nSem pré-visualização para este formato" : "")) + '">' + esc(f.name) + '</span>' +
-            '<button class="tile-star' + (isFav(f.path) ? " on" : "") + '" title="Favoritar">' + svg("i-star") + '</button></div>';
+        var kindIcon = KIND_ICON[f.kind] || "i-file";
+        var el = h("div", { className: "tile", dataset: { i: i }, draggable: true }, [
+            h("div", { className: "tile-thumb kind-" + f.kind }, [
+                icon(kindIcon, "ph kind-" + f.kind + "-ph"),
+                h("span", { className: "tile-ext" + (f.kind === "unknown" ? " warn" : "") }, [f.ext]),
+                h("span", { className: "tile-badge" })
+            ]),
+            h("div", { className: "tile-foot" }, [
+                h("span", { className: "kind kind-" + f.kind, title: KIND_LABEL[f.kind] }, [icon(kindIcon)]),
+                h("span", { className: "tile-name", title: f.name + (warn ? "\nSem pré-visualização para este formato" : "") }, [f.name]),
+                h("button", { className: "tile-star" + (isFav(f.path) ? " on" : ""), title: "Favoritar" }, [icon("i-star")])
+            ])
+        ]);
         var ph = el.querySelector(".ph");
         ph.style.color = "var(--kind-" + (f.kind === "unknown" ? "other" : f.kind) + ")";
         var cached = P.peek(f);
@@ -657,7 +696,7 @@
             document.body.appendChild(dragGhost);
         }
         var f = files[0];
-        dragGhost.innerHTML = svg(KIND_ICON[f.kind] || "i-file") + "<span>" + esc(files.length > 1 ? files.length + " arquivos" : f.name) + "</span>";
+        fill(dragGhost, [icon(KIND_ICON[f.kind] || "i-file"), h("span", null, [files.length > 1 ? files.length + " arquivos" : f.name])]);
         return dragGhost;
     }
 
@@ -900,11 +939,10 @@
 
     function showMenu(x, y, items) {
         var m = els.menu;
-        m.innerHTML = "";
+        m.textContent = "";
         items.forEach(function (it) {
             if (it === "-") { m.appendChild(document.createElement("hr")); return; }
-            var b = document.createElement("button");
-            b.innerHTML = svg(it.icon || "i-file") + "<span>" + esc(it.label) + "</span>";
+            var b = h("button", null, [icon(it.icon || "i-file"), h("span", null, [it.label])]);
             if (it.danger) b.className = "danger";
             b.disabled = !!it.disabled;
             b.addEventListener("click", function () { hideMenu(); it.action(); });
@@ -1015,9 +1053,10 @@
     var cacheInfoToken = 0;
     function updateCacheInfo() {
         if (cfg.cacheMode === "library") {
-            els.cacheHint.innerHTML = "Os previews ficam numa pasta oculta <span class=\"path\">" + L.CACHE_DIR_NAME + "</span> dentro de cada biblioteca. Copiou a pasta para outro PC ou HD? Os previews vão junto.";
+            fill(els.cacheHint, ["Os previews ficam numa pasta oculta ", h("span", { className: "path" }, [L.CACHE_DIR_NAME]),
+                " dentro de cada biblioteca. Copiou a pasta para outro PC ou HD? Os previews vão junto."]);
         } else {
-            els.cacheHint.innerHTML = "Os previews ficam em <span class=\"path\">" + esc(L.systemCacheDir()) + "</span>. As pastas da biblioteca não são alteradas.";
+            fill(els.cacheHint, ["Os previews ficam em ", h("span", { className: "path" }, [L.systemCacheDir()]), ". As pastas da biblioteca não são alteradas."]);
         }
         var token = ++cacheInfoToken;
         L.cacheSize(cacheDirs()).then(function (size) {
