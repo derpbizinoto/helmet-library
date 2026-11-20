@@ -360,3 +360,16 @@ R2 a R5 passaram. R1 falhou: o painel Project continua vindo para a frente. Pedi
 depois de soltar. O CEP não tem uma função oficial para "focar" um painel; se isso também não
 funcionar, a saída é de layout (Helmet Library num grupo de painéis diferente do Project). A troca de
 painel vem do próprio import do Premiere (`importFiles` traz o Project para a frente), não do CEP.
+
+### 1.3.4 — arrastar MOGRT com imagem provisória
+
+O Premiere recusa `.mogrt` arrastado de um painel CEP (teste 2.11). O Animation Composer (Mister Horse)
+contorna isso arrastando um arquivo de pré-visualização e trocando pelo item real depois de soltar;
+ele também instala plugins nativos (`.prm`), que o Helmet Library não tem. A 1.3.4 faz a troca só com
+ExtendScript: `L.dragPlaceholder` cria um PNG cinza com o nome do MOGRT; `hl_swapPlaceholder` (0,7 s,
+2 s e 5 s depois de soltar) acha os clipes desse PNG na sequência ativa, tira cada um (`remove`, conferido
+depois porque o retorno varia), coloca o MOGRT com `importMGT` no mesmo tempo e trilha e apaga o PNG do
+projeto se ele não estiver em nenhuma sequência (sem apagar bins, que podem ser do usuário). Se na
+última conferência o PNG só estiver no projeto, foi solto no Project: vira "só no projeto".
+Risco conhecido: se o `importMGT` falhar depois de tirar a imagem, o lugar fica vazio e a barra de
+baixo mostra o erro (o botão Adicionar continua funcionando).

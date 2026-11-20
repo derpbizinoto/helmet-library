@@ -1,5 +1,10 @@
 # Changelog — Helmet Library
 
+## 1.3.4 — arrastar MOGRT
+
+- **MOGRT agora entra arrastando.** O Premiere não aceita `.mogrt` arrastado de um painel, então a extensão arrasta no lugar uma imagem cinza com o nome do MOGRT. Depois de soltar, ela troca a imagem pelo MOGRT na mesma posição e trilha e tira a imagem do projeto. Solto no painel Project, o MOGRT vai "só no projeto". É a mesma ideia usada por outras extensões de biblioteca.
+- A imagem provisória fica em `%LOCALAPPDATA%Helmet Libraryarrastar` (uma por MOGRT, minúscula).
+
 ## 1.3.3 — painel de volta depois de soltar
 
 - O pedido para o Helmet Library voltar para a frente agora também é feito **depois de soltar** o vídeo (300 ms e 1,2 s depois). Na 1.3.2 ele só era feito durante o arrasto, e o Premiere ignorava.

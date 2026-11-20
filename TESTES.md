@@ -1,6 +1,13 @@
-# Roteiro de testes no Premiere — Helmet Library 1.3.3
+# Roteiro de testes no Premiere — Helmet Library 1.3.4
 
-> **Reteste da 1.3.3.** Instale a 1.3.3 (`instalar.bat`) e confira só isto:
+> **Reteste da 1.3.4.** Instale a 1.3.4 (`instalar.bat`). Ela junta a tentativa da 1.3.3 (painel de volta) com o arrastar de MOGRT. Confira só isto:
+>
+> - [ ] **M1** Arraste um **MOGRT** para a timeline e solte. Por um instante aparece uma imagem cinza com o nome dele; em até uns 2 segundos ela vira o **MOGRT**, no mesmo lugar e na mesma trilha. A barra de baixo diz "“nome” na trilha V…".
+> - [ ] **M2** Depois do M1, no painel Project **não** sobra nenhuma imagem cinza (`.png` com o nome do MOGRT) nem bin "Helmet Library - removendo…".
+> - [ ] **M3** Arraste **dois MOGRTs** selecionados juntos: os dois viram MOGRT.
+> - [ ] **M4** Arraste um MOGRT para o **painel Project**: uns 5 segundos depois a imagem cinza some e o MOGRT é importado na bin (ou aparece o aviso "Esta versão do Premiere só aceita MOGRT direto na timeline").
+> - [ ] **M5** Comece a arrastar um MOGRT e desista (solte de volta no painel ou aperte Esc): nada aparece no projeto.
+> - [ ] **M6** Arraste um MOGRT com nome difícil (acento, emoji): o nome do clipe na timeline fica certo.
 >
 > - [ ] **R1b** Arraste um **vídeo** que ainda não está no projeto para a timeline e solte. Em até 1 segundo depois de soltar, o painel **Helmet Library volta para a frente** sozinho. Anote se: (a) não volta; (b) volta, mas só depois de um tempo grande; (c) o painel recarrega (perde a pasta aberta ou a seleção).
 > - [ ] **R2b** Repita R3 (soltar no Project) e R5 (vários vídeos): continuam funcionando.
@@ -42,14 +49,14 @@ Marque cada item com `x` quando passar. Se algo falhar, anote o número do item,
      - `🔥 explosão 💥.mp4` (emoji)
      - `   espaços   no   meio.png` (vários espaços)
      - `nome.com.pontos.mp3`
-2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.3.
+2. Feche o Premiere e rode o `instalar.bat` da versão 1.3.4.
 3. Abra o Premiere, crie um projeto de teste e uma sequência.
 
 ## 1. Instalação
 
-- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.3**, sem erro.
+- [x] 1.1 O `instalar.bat` mostra as etapas [1/3], [2/3] e [3/3] e a versão **1.3.4**, sem erro.
 - [x] 1.2 **Janela › Extensões › Helmet Library** abre o painel, com o visual de sempre.
-- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.3**.
+- [x] 1.3 Na engrenagem (configurações), o rodapé diz **Helmet Library 1.3.4**.
 - [x] 1.4 O painel aparece **uma vez só** no menu de extensões (sem cópia duplicada).
 - [x] 1.5 As bibliotecas e favoritos que você já tinha continuam lá.
 
