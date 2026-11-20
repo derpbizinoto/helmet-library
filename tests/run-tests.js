@@ -808,6 +808,43 @@ test("arrastar: solto na timeline sem sequência desfaz a sequência nova e avis
     assert.ok(noTempBins(host), "a bin do impedir-refazer não fica");
 });
 
+// D6 (1.3.7 falhou no Premiere): o nome da sequência pode vir sem a extensão; o tamanho 192×108 também conta.
+async function dropOnEmptyTimeline(seqName, w, h) {
+    const host = loadHost({ sequence: null });
+    const bridge = loadBridge(host);
+    const project = host.app.project;
+    const [x] = dragFiles(["Card.mogrt"]);
+    const item = project.rootItem.add(new mock.ClipItem(path.resolve(x.ph), 5));
+    project.undoStack.push(() => project.rootItem.children.splice(project.rootItem.children.indexOf(item), 1));
+    const seq = new mock.Sequence(1, 1);
+    seq.name = seqName;
+    seq.frameSizeHorizontal = w; seq.frameSizeVertical = h;
+    project.activeSequence = seq;
+    project.undoStack.push(() => { project.activeSequence = null; });
+    seq.videoTracks[0].overwriteClip(item, 0);
+    project.undoStack.push(() => seq.videoTracks[0].clips.splice(0));
+    return { r: await bridge.call("hl_takeDrop", [x.ph, false, true]), project };
+}
+
+test("arrastar: timeline vazia é reconhecida pelo nome sem extensão ou pelo tamanho 192×108", async () => {
+    let t = await dropOnEmptyTimeline("Card", 1920, 1080);
+    eq([t.r.newSequence, t.project.activeSequence], [true, null]);
+    t = await dropOnEmptyTimeline("Sequência 07", 192, 108);
+    eq([t.r.newSequence, t.project.activeSequence], [true, null]);
+});
+
+test("arrastar: MOGRT solto numa sequência vazia do usuário entra normalmente", async () => {
+    const host = loadHost();
+    const bridge = loadBridge(host);
+    const seq = host.app.project.activeSequence;
+    const [x] = dragFiles(["Card.mogrt"]);
+    dropPlaceholder(host, x.ph, 0, 0);
+    const r = await bridge.call("hl_takeDrop", [x.ph, false, true]);
+    assert.ok(!r.newSequence);
+    eq([r.undone, r.spots[0].found], [true, 1]);
+    assert.strictEqual(host.app.project.activeSequence, seq);
+});
+
 test("arrastar: sequência do usuário com o mesmo nome e outros clipes não é desfeita", async () => {
     const host = loadHost();
     const bridge = loadBridge(host);

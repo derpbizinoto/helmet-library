@@ -148,22 +148,25 @@
         }, Promise.resolve()).then(function () { return results; });
     }
 
-    function swapAfterDrop(swaps, onlyMogrts) {
+    // leftOut: quantos arquivos da seleção ficaram fora do arrasto (MOGRT não vai junto com outros).
+    function swapAfterDrop(swaps, onlyMogrts, leftOut) {
         takePlaceholders(swaps, onlyMogrts).then(function () { return placeItems(swaps); }).then(function (results) {
             var errors = results.filter(function (r) { return r.error; }),
                 warnings = results.filter(function (r) { return r.warning; }),
                 oks = results.filter(function (r) { return r.ok; });
+            var left = leftOut ? " " + (leftOut === 1 ? "O outro arquivo não foi junto" : "Os outros " + leftOut + " arquivos não foram junto") + ": MOGRT vai num arrasto só dele." : "";
             if (errors.length) setStatus(errors.length === 1 ? errors[0].error : errors.length + " item(ns) falharam. " + errors[0].error, "error");
             else if (warnings.length) setStatus(warnings[0].warning, "warning");
-            else if (oks.length === 1) setStatus(oks[0].ok + ".", "success");
-            else if (oks.length) setStatus(oks.length + " arquivos adicionados.", "success");
+            else if (oks.length === 1) setStatus(oks[0].ok + "." + left, left ? "warning" : "success");
+            else if (oks.length) setStatus(oks.length + " arquivos adicionados." + left, left ? "warning" : "success");
+            else if (left) setStatus(left.slice(1), "warning");
         });
     }
 
-    // files: todos os arquivos do arrasto (para saber se eram só MOGRTs com imagem provisória).
-    function afterDrag(swaps, files) {
+    // files: os arquivos que foram no arrasto (para saber se eram só MOGRTs com imagem provisória).
+    function afterDrag(swaps, files, leftOut) {
         if (!inCEP || !swaps || !swaps.length) return;
-        swapAfterDrop(swaps, !!files && files.length === swaps.length);
+        swapAfterDrop(swaps, !!files && files.length === swaps.length, leftOut || 0);
     }
 
     function flashTile(f) {

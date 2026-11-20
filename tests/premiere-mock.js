@@ -69,6 +69,8 @@ class Sequence {
         this.playhead = 0;
         this.mgts = [];
         this.name = "Sequência 01";
+        this.frameSizeHorizontal = 1920;
+        this.frameSizeVertical = 1080;
         this.selection = [];
     }
     getSelection() { return this.selection.slice(); }

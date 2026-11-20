@@ -472,6 +472,16 @@
             if (ph) swaps.push({ file: f, placeholder: ph });
             return ph || f.path;
         });
+        // 1.3.8: MOGRT não vai junto com outros arquivos, como no Animation Composer (um item por vez).
+        // A troca do MOGRT desfaz a soltura inteira (Ctrl+Z do Premiere); com outros arquivos juntos,
+        // eles sairiam também, e tirar a imagem clipe por clipe deixava o Ctrl+Z trazê-la de volta
+        // (teste D9). Então o arrasto leva só os MOGRTs e a barra de baixo avisa.
+        var leftOut = 0;
+        if (swaps.length && swaps.length < files.length) {
+            leftOut = files.length - swaps.length;
+            files = swaps.map(function (s) { return s.file; });
+            paths = swaps.map(function (s) { return s.placeholder; });
+        }
         if (files.some(function (f) { return f.kind === "video"; })) {
             // VÍDEO (1.3.6): igual ao Animation Composer, que arrasta vídeo sem o Premiere abrir o
             // painel Project. Para vídeo comum ele manda SÓ o caminho do arquivo verdadeiro no formato
@@ -490,16 +500,17 @@
             dt.setData("text/plain", paths.join("\n"));
         }
         try { dt.setDragImage(ghostFor(files), 14, 14); } catch (err) { /* usa a imagem padrão */ }
-        state.dragging = { files: files, el: el, swaps: swaps };
+        state.dragging = { files: files, el: el, swaps: swaps, leftOut: leftOut };
         el.classList.add("dragging");
-        setStatus("Solte na timeline ou no painel Project" + (files.length > 1 ? " (" + files.length + " arquivos)" : "") + ".", "", true);
+        if (leftOut) setStatus("Só os MOGRTs vão neste arrasto. Arraste os outros arquivos à parte.", "warning", true);
+        else setStatus("Solte na timeline ou no painel Project" + (files.length > 1 ? " (" + files.length + " arquivos)" : "") + ".", "", true);
     });
 
     els.grid.addEventListener("dragend", function (e) {
         var d = state.dragging;
         state.dragging = null;
         if (d && d.el) d.el.classList.remove("dragging");
-        if (d) app.afterDrag(d.swaps, d.files);   // troca as imagens provisórias pelos MOGRTs
+        if (d) app.afterDrag(d.swaps, d.files, d.leftOut);   // troca as imagens provisórias pelos MOGRTs
         var outside = e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight;
         var effect = e.dataTransfer ? e.dataTransfer.dropEffect : "";
         // O dropEffect que volta de outro programa não é confiável (vinha "none" mesmo quando o Premiere

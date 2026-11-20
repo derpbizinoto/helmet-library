@@ -8,7 +8,7 @@
 // por hl_run: try/catch único e resposta sempre em JSON { ok, data, error }.
 // Este arquivo é salvo em UTF-8 COM BOM (senão o ExtendScript lê os acentos errado).
 
-var HL_HOST_VERSION = "1.3.7";
+var HL_HOST_VERSION = "1.3.8";
 
 // ---------- respostas ----------
 
@@ -227,10 +227,26 @@ function hl_closeInSourceMonitor(wanted) {
     return closed;
 }
 
-// Sequência criada pelo Premiere ao soltar na timeline vazia: só tem as imagens e uma delas tem
-// o nome da sequência (mesma conferência do Composer).
+// Tamanho da imagem provisória (PLACEHOLDER_PNG em client/js/library.js).
+var HL_PLACEHOLDER_W = 192, HL_PLACEHOLDER_H = 108;
+
+// Nome sem extensão e em minúsculas, para comparar "Card.png" com "Card".
+function hl_baseName(n) {
+    return String(n || "").replace(/^.*[\\\/]/, "").replace(/\.[^.]*$/, "").toLowerCase();
+}
+
+// Sequência criada pelo Premiere ao soltar na timeline vazia: só tem as imagens e tem o nome de
+// uma delas (a conferência do Composer) ou o tamanho da imagem provisória.
+// 1.3.8: no teste D6 o nome exato não bateu (extensão), então o nome é comparado sem extensão e o
+// tamanho de quadro 192×108 também conta.
 function hl_isPlaceholderSequence(seq, wanted) {
     var onlyOurs = true, named = false, total = 0;
+    var seqName = "";
+    try { seqName = hl_baseName(seq.name); } catch (e0) { seqName = ""; }
+    for (var w = 0; w < wanted.length; w++) if (seqName && hl_baseName(wanted[w]) === seqName) named = true;
+    try {
+        if (Number(seq.frameSizeHorizontal) === HL_PLACEHOLDER_W && Number(seq.frameSizeVertical) === HL_PLACEHOLDER_H) named = true;
+    } catch (e1) { /* ignora */ }
     var groups = [seq.videoTracks, seq.audioTracks];
     for (var g = 0; g < groups.length; g++) {
         for (var t = 0; t < groups[g].numTracks; t++) {
@@ -242,7 +258,7 @@ function hl_isPlaceholderSequence(seq, wanted) {
                 var ours = false;
                 for (var i = 0; i < wanted.length; i++) if (mp === wanted[i]) ours = true;
                 if (!ours) onlyOurs = false;
-                try { if (clips[c].name === seq.name) named = true; } catch (e2) { /* ignora */ }
+                try { if (seqName && hl_baseName(clips[c].name) === seqName) named = true; } catch (e2) { /* ignora */ }
             }
         }
     }
