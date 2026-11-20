@@ -352,6 +352,21 @@ test("mogrt: arquivo danificado ou com tamanhos falsos é recusado sem travar", 
 });
 
 // ---------------------------------------------------------------------------
+// Programas do sistema
+// ---------------------------------------------------------------------------
+
+test("processos: nenhum exec com texto; attrib/explorer pelo caminho completo", () => {
+    const src = read("client/js/library.js") + read("client/js/main.js") + read("client/js/previews.js") + read("client/js/player.js");
+    assert.ok(!/\bcp\.exec\(|\bexecSync\(|shell\s*:\s*true/.test(src), "exec com texto ou shell: true");
+    assert.ok(!/\beval\(|new Function\(|setTimeout\(\s*["']/.test(src), "eval / new Function / setTimeout com texto");
+    const L = loadPanel(["client/js/library.js"], { SystemRoot: "D:\\WinTeste", APPDATA: tmpDir("cfg") }).HLLibrary;
+    assert.strictEqual(L._programs.attrib(), path.join("D:\\WinTeste", "System32", "attrib.exe"));
+    assert.strictEqual(L._programs.explorer(), path.join("D:\\WinTeste", "explorer.exe"));
+    const L2 = loadPanel(["client/js/library.js"], { SystemRoot: "relativo", windir: "", APPDATA: tmpDir("cfg") }).HLLibrary;
+    assert.strictEqual(L2._programs.explorer(), path.join("C:\\Windows", "explorer.exe"), "pasta do Windows relativa é ignorada");
+});
+
+// ---------------------------------------------------------------------------
 // Execução
 // ---------------------------------------------------------------------------
 

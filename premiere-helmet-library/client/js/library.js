@@ -394,9 +394,7 @@
         }
         mkdirp(dir);
         // pasta oculta no Windows, para não poluir a biblioteca
-        if (process.platform === "win32" && path.basename(dir) === CACHE_DIR_NAME) {
-            try { cp.exec('attrib +h "' + dir + '"', { windowsHide: true }); } catch (e) { /* ignora */ }
-        }
+        if (process.platform === "win32" && path.basename(dir) === CACHE_DIR_NAME) hideFolder(dir);
     }
 
     // Arquivos de preview de uma pasta de cache: [{ path, size }]. Pasta-atalho: nenhum.
@@ -627,17 +625,45 @@
         return "file://" + encodeURI(s).replace(/#/g, "%23").replace(/\?/g, "%3F");
     }
 
+    // ---------- programas do sistema ----------
+    // Sempre pelo caminho completo (o Windows procuraria primeiro na pasta atual), com
+    // argumentos em lista (nada de montar comando em texto, sem cmd.exe) e tempo limite.
+
+    function windowsDir() {
+        var d = process.env.SystemRoot || process.env.windir || "";
+        return path.isAbsolute(d) ? d : "C:\\Windows";
+    }
+
+    var PROGRAMS = {
+        attrib: function () { return path.join(windowsDir(), "System32", "attrib.exe"); },
+        explorer: function () { return path.join(windowsDir(), "explorer.exe"); },
+        open: function () { return "/usr/bin/open"; }
+    };
+
+    // Marca a pasta como oculta (attrib +h). Falhar aqui não é problema: só fica visível.
+    function hideFolder(dir) {
+        try {
+            cp.execFile(PROGRAMS.attrib(), ["+h", dir], { windowsHide: true, timeout: 10000 }, function () { });
+        } catch (e) { /* ignora */ }
+    }
+
+    // Abre um programa e não espera por ele (Explorer, Finder).
+    function launch(exe, args) {
+        try {
+            var child = cp.spawn(exe, args, { detached: true, stdio: "ignore" });
+            child.on("error", function (e) { console.warn("Helmet Library: não abriu " + exe, e); });
+            child.unref();
+        } catch (e) { console.warn("Helmet Library: não abriu " + exe, e); }
+    }
+
     function reveal(pth) {
-        if (process.platform === "win32") {
-            cp.spawn("explorer.exe", ["/select,", pth], { detached: true, windowsHide: false });
-        } else {
-            cp.spawn("open", ["-R", pth], { detached: true });
-        }
+        if (process.platform === "win32") launch(PROGRAMS.explorer(), ["/select,", pth]);
+        else launch(PROGRAMS.open(), ["-R", pth]);
     }
 
     function openFolder(dir) {
-        if (process.platform === "win32") cp.spawn("explorer.exe", [dir], { detached: true });
-        else cp.spawn("open", [dir], { detached: true });
+        if (process.platform === "win32") launch(PROGRAMS.explorer(), [dir]);
+        else launch(PROGRAMS.open(), [dir]);
     }
 
     function fmtBytes(n) {
@@ -679,6 +705,7 @@
         toFileUrl: toFileUrl,
         reveal: reveal,
         openFolder: openFolder,
+        _programs: PROGRAMS,   // exposto para os testes automáticos
         fmtBytes: fmtBytes,
         appDataDir: appDataDir,
         path: path,
